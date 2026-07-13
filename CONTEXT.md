@@ -190,7 +190,38 @@ thuộc về A — không tự động tạo quan hệ ngược lại.
 
 ---
 
-## 11. Lịch sử cập nhật
+## 11. Ghi chú vận hành Supabase
+
+- Project: `applove` (ref `ourwtfduffytqmfuicim`), region Sydney (Oceania).
+- **Direct connection (`db.*.supabase.co`) dùng IPv6 — không kết nối được từ mạng hiện tại
+  của máy dev (lỗi DNS).** Luôn dùng **Session pooler** để chạy SQL thủ công từ local:
+  `postgresql://postgres.ourwtfduffytqmfuicim@aws-0-ap-southeast-2.pooler.supabase.com:5432/postgres`
+  (mật khẩu DB nhập qua `PGPASSWORD`, không hard-code vào file).
+- Supabase CLI: không cài qua Homebrew được (máy thiếu Command Line Tools cập nhật) — dùng
+  `npx supabase <command>` thay vì cài global. Đã chạy `npx supabase init` (tạo
+  `supabase/config.toml`), chưa `login`/`link` (đang áp migration trực tiếp qua `psql` +
+  connection pooler ở trên thay vì qua CLI push).
+- Migration `00000000000001_init.sql` đã áp dụng thành công lên project thật (bảng
+  `profiles`, `spare_relationships`, `invite_codes` + RLS + RPC `redeem_invite_code`).
+- **Lưu ý bảo mật:** secret key gốc đã bị dán vào chat 1 lần khi setup — cần rotate lại trong
+  Supabase dashboard (Project Settings → API Keys) khi có dịp, chưa làm. Một Management API
+  token (`sbp_...`) cũng đã được tạo và dùng để bật `mailer_autoconfirm` qua
+  `PATCH /v1/projects/{ref}/config/auth` — user cần tự thu hồi token này tại
+  supabase.com/dashboard/account/tokens sau khi dùng xong.
+- **Auto-confirm email đã bật** (`mailer_autoconfirm: true`) qua Management API — người dùng
+  đăng ký xong đăng nhập được ngay, không cần bấm link xác nhận trong email. Phù hợp MVP test
+  với nhóm bạn bè nhỏ, tin cậy nhau.
+- **Bẫy PL/pgSQL cần nhớ khi viết RPC tương tự:** nếu `returns table (owner_id uuid, ...)`,
+  bất kỳ chỗ nào trong thân function nhắc tới cột tên `owner_id` (kể cả trong mệnh đề
+  `ON CONFLICT (owner_id, ...)`, vốn không cho phép qualify bằng alias bảng) đều bị Postgres
+  coi là "ambiguous" vì trùng tên biến output ngầm định của function. Giải pháp chắc ăn nhất:
+  đặt tên cột output khác hẳn tên cột thật trong bảng (đã áp dụng: đổi thành
+  `result_owner_id`/`result_owner_display_name` trong `redeem_invite_code`, xem migration
+  00000000000005). `invite_codes.owner_id` cũng cần `default auth.uid()` (migration
+  00000000000002) vì RLS insert policy check `auth.uid() = owner_id` sẽ fail nếu client
+  không tự gửi giá trị này.
+
+## 12. Lịch sử cập nhật
 
 - **2026-07-13** — Khởi tạo file context từ buổi trao đổi ý tưởng đầu tiên. Đã chốt: mô hình
   quan hệ sở hữu bất đối xứng không giới hạn, luồng cầu cứu 2 chế độ (tất cả / một người),
