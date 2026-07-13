@@ -228,3 +228,34 @@ thuộc về A — không tự động tạo quan hệ ngược lại.
   từ chối = kết thúc phiên (không auto-fallback ở MVP), đề xuất Supabase thay Neon cho phần
   realtime (chờ xác nhận), giữ nguyên hướng deploy iOS qua "tin cậy nhà phát triển" cho giai
   đoạn test.
+- **2026-07-13** — M3 hoàn tất (SOS cơ bản). Migration
+  `00000000000006_sos_sessions.sql`: bảng `sos_sessions` (mode broadcast/direct, status
+  active/accepted/ended, accepted_by/ended_by) + `sos_responses` (1 row/spare được nhờ mỗi
+  phiên) + RLS + 3 RPC (`create_sos_session`, `respond_to_sos`, `end_sos_session`) + bật
+  Supabase Realtime cho cả 2 bảng. 3 màn hình: `sos/new` (chọn broadcast/direct + target),
+  `sos/[sessionId]` (owner theo dõi phản hồi, có thể kết thúc), `sos/incoming/[sessionId]`
+  (spare đồng ý/từ chối). Home screen subscribe realtime, hiện banner "đang cầu cứu" (owner)
+  và "X đang cần giúp" (spare) tự động không cần push (push thật để M5).
+
+  Verify bằng 3 tài khoản thật qua API (curl + RPC), phát hiện và sửa **2 lỗi thật**:
+  1. **RLS đệ quy vô hạn** (`infinite recursion detected in policy`): policy select của
+     `sos_sessions` tham chiếu `sos_responses`, và policy select của `sos_responses` tham
+     chiếu ngược lại `sos_sessions` → Postgres coi là vòng lặp. Sửa bằng cách tạo hàm
+     `is_sos_session_owner(p_session_id)` (`security definer`, bỏ qua RLS) để
+     `sos_responses` dùng thay vì subquery trực tiếp vào `sos_sessions`.
+  2. **Bẫy NULL trong PL/pgSQL `if` (nghiêm trọng — lỗi phân quyền)**: guard trong
+     `end_sos_session` viết `auth.uid() <> v_session.owner_id and auth.uid() <>
+     v_session.accepted_by` — khi `accepted_by` còn NULL (chưa ai nhận), phép so sánh
+     `<> NULL` trả về NULL chứ không phải true/false, và `NULL and true` cũng ra NULL, bị
+     PL/pgSQL `if` coi là false → **bỏ qua toàn bộ guard**, cho phép BẤT KỲ người dùng nào
+     (kể cả không liên quan gì tới phiên) kết thúc phiên cầu cứu của người khác miễn là
+     chưa có ai đồng ý giúp. Sửa bằng `is distinct from` thay cho `<>` ở mọi so sánh với
+     cột có thể NULL. **Ghi nhớ cho code sau:** không bao giờ dùng `<>`/`=` trực tiếp với
+     cột nullable trong điều kiện `if`/`where` của PL/pgSQL nếu muốn NULL được xử lý như
+     "khác giá trị đó" — luôn dùng `is distinct from` / `is not distinct from`.
+  3. Race broadcast (nhiều spare cùng bấm "đồng ý"): `select ... for update` trên
+     `sos_sessions` trong `respond_to_sos` serialize các lệnh gọi đồng thời cùng
+     session_id, nên request tới sau sẽ thấy `status <> 'active'` và bị chặn với lỗi
+     `already_taken_by_someone_else` — không còn bị đánh dấu nhầm `sos_responses.status =
+     'accepted'` cho người thua cuộc đua (bug đã sửa, không phải chỉ ở session, còn ở
+     response row).

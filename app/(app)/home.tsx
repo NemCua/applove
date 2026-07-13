@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Link, router, useFocusEffect } from 'expo-router';
 import {
   ActivityIndicator,
@@ -14,6 +14,14 @@ import { SosButton } from '../../components/SosButton';
 import { SpareListItem } from '../../components/SpareListItem';
 import { colors } from '../../lib/theme';
 import { listMySpares, listOwnersOfMe, removeSpareRelationship, type MySpare, type OwnerOfMe } from '../../lib/api/spares';
+import { supabase } from '../../lib/supabase';
+import {
+  getMyActiveSosSession,
+  listIncomingSosRequests,
+  type SosSession,
+} from '../../lib/api/sos';
+
+type IncomingRequest = Awaited<ReturnType<typeof listIncomingSosRequests>>[number];
 
 function formatRelativeDate(iso: string) {
   const diffMs = Date.now() - new Date(iso).getTime();
@@ -28,14 +36,23 @@ function formatRelativeDate(iso: string) {
 export default function Home() {
   const [mySpares, setMySpares] = useState<MySpare[]>([]);
   const [ownersOfMe, setOwnersOfMe] = useState<OwnerOfMe[]>([]);
+  const [activeSession, setActiveSession] = useState<SosSession | null>(null);
+  const [incoming, setIncoming] = useState<IncomingRequest[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
 
   const load = useCallback(async () => {
     try {
-      const [spares, owners] = await Promise.all([listMySpares(), listOwnersOfMe()]);
+      const [spares, owners, active, incomingRequests] = await Promise.all([
+        listMySpares(),
+        listOwnersOfMe(),
+        getMyActiveSosSession(),
+        listIncomingSosRequests(),
+      ]);
       setMySpares(spares);
       setOwnersOfMe(owners);
+      setActiveSession(active);
+      setIncoming(incomingRequests);
     } catch (err: any) {
       Alert.alert('Lỗi tải dữ liệu', err.message ?? String(err));
     }
@@ -47,6 +64,18 @@ export default function Home() {
       load().finally(() => setIsLoading(false));
     }, [load])
   );
+
+  useEffect(() => {
+    const channel = supabase
+      .channel('sos-home')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'sos_responses' }, () => load())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'sos_sessions' }, () => load())
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [load]);
 
   const handleRefresh = async () => {
     setIsRefreshing(true);
@@ -115,6 +144,36 @@ export default function Home() {
               Hồ sơ
             </Link>
           </View>
+
+          {activeSession && (
+            <Pressable
+              style={styles.activeSessionBanner}
+              onPress={() =>
+                router.push({ pathname: '/(app)/sos/[sessionId]', params: { sessionId: activeSession.id } })
+              }
+            >
+              <Text style={styles.activeSessionText}>
+                {activeSession.status === 'accepted' ? '🟢 Đã có người nhận giúp bạn' : '🆘 Đang chờ phản hồi cầu cứu'}
+              </Text>
+              <Text style={styles.activeSessionSub}>Bấm để xem chi tiết</Text>
+            </Pressable>
+          )}
+
+          {incoming.map((req) => (
+            <Pressable
+              key={req.response.id}
+              style={styles.incomingBanner}
+              onPress={() =>
+                router.push({
+                  pathname: '/(app)/sos/incoming/[sessionId]',
+                  params: { sessionId: req.session.id },
+                })
+              }
+            >
+              <Text style={styles.incomingText}>🆘 {req.owner.display_name} đang cần giúp!</Text>
+              <Text style={styles.incomingSub}>Bấm để xem và phản hồi</Text>
+            </Pressable>
+          ))}
 
           <SosButton onPress={() => router.push('/(app)/sos/new')} />
 
@@ -193,6 +252,22 @@ const styles = StyleSheet.create({
     color: colors.textFaint,
   },
   addLink: { color: colors.calm, fontSize: 13, fontWeight: '700' },
+  activeSessionBanner: {
+    backgroundColor: colors.calmDim,
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 14,
+  },
+  activeSessionText: { color: colors.text, fontWeight: '800', fontSize: 15 },
+  activeSessionSub: { color: colors.textDim, fontSize: 12.5, marginTop: 4 },
+  incomingBanner: {
+    backgroundColor: colors.accentDim,
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 14,
+  },
+  incomingText: { color: colors.text, fontWeight: '800', fontSize: 15 },
+  incomingSub: { color: colors.textDim, fontSize: 12.5, marginTop: 4 },
   emptyText: { color: colors.textDim, fontSize: 13.5 },
   list: { gap: 10 },
 });
