@@ -48,6 +48,10 @@ export default function ActiveSos() {
 
   useEffect(() => {
     if (!sessionId) return;
+    const topic = `realtime:sos-owner-${sessionId}`;
+    const existing = supabase.getChannels().find((c) => c.topic === topic);
+    if (existing) supabase.removeChannel(existing);
+
     const channel = supabase
       .channel(`sos-owner-${sessionId}`)
       .on(

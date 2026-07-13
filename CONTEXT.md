@@ -259,3 +259,41 @@ thuộc về A — không tự động tạo quan hệ ngược lại.
      `already_taken_by_someone_else` — không còn bị đánh dấu nhầm `sos_responses.status =
      'accepted'` cho người thua cuộc đua (bug đã sửa, không phải chỉ ở session, còn ở
      response row).
+- **2026-07-14** — Sửa môi trường dev chạy thử app thật + 3 bug thêm phát hiện lúc chạy thử:
+  - **Môi trường:** máy dev có Node v20.9.0 (không đủ `>= 20.19.4` mà Expo SDK 57 yêu cầu,
+    lỗi cứng chứ không chỉ warning) → cài `nvm` (chưa từng có trên máy), cài Node LTS mới
+    (v24.18.0) làm mặc định. Điện thoại test chỉ có Expo Go bản hỗ trợ tối đa **SDK 54**,
+    trong khi project ở SDK 57 → hạ toàn bộ xuống SDK 54 bằng `npx expo install expo@^54.0.0`
+    rồi `npx expo install --fix`, xoá `node_modules`/`package-lock.json` cài lại sạch (tránh
+    xung đột peer dependency giữa version cũ/mới còn kẹt trong lockfile). **Lưu ý:** máy dev
+    có 1 bản `expo-cli` global cũ ở `/opt/homebrew/bin/expo` (deprecated) — luôn gõ
+    `npx expo start`, không gõ `expo start` trơn, nếu không sẽ chạy nhầm CLI cũ.
+  - **Bug cấu hình có sẵn — `react-native-maps` bị khai nhầm là Expo config plugin** trong
+    mảng `plugins` của `app.json`. Package này không có `app.plugin.js`/không export config
+    plugin thật, nên khi Expo CLI cố `require()` trực tiếp (không qua Metro/Babel) để tìm
+    plugin, nó đọc phải JSX thô trong `lib/MapView.js` và sập với
+    `SyntaxError: Unexpected token '<'`. Sửa: bỏ hẳn entry `"react-native-maps"` khỏi
+    `plugins` — thư viện vẫn dùng bình thường như component, chỉ không phải khai plugin.
+  - **Thiếu `react-native-web`/`react-dom`** để chạy `expo start` (nhấn `w`)/web — chưa từng
+    cài từ đầu. Cài qua `npx expo install react-native-web react-dom` để lấy đúng version
+    theo SDK 54. Lưu ý: `react-native-maps` không chạy được trên web thật sự — màn hình bản
+    đồ (M4) có thể lỗi/trắng trên web, nhưng các màn hình hiện tại không dùng map nên không
+    ảnh hưởng.
+  - **Bug thật — Supabase Realtime channel bị tạo trùng khi effect chạy 2 lần** (React
+    Strict Mode / fast refresh trên web dev): `.channel(name).on(...).on(...).subscribe()`
+    gọi lần 2 trước khi cleanup lần 1 kịp gỡ channel cũ → lỗi
+    `cannot add postgres_changes callbacks ... after subscribe()`. Sửa ở cả 3 nơi
+    (`home.tsx`, `sos/[sessionId].tsx`, `sos/incoming/[sessionId].tsx`): trước khi tạo
+    channel mới, tự tìm và `removeChannel()` channel cùng tên (`topic`) còn sót lại qua
+    `supabase.getChannels()`, không chỉ dựa vào cleanup function của `useEffect`.
+  - **Bug thật (nghiêm trọng) — "là lốp của chính mình"**: `listMySpares()` và
+    `listOwnersOfMe()` trong `lib/api/spares.ts` không tự lọc theo `auth.uid()`, chỉ dựa vào
+    RLS. Nhưng RLS policy của `spare_relationships` cho phép đọc row nếu bạn là owner HOẶC
+    spare — tức là **cùng 1 row owner đọc được y hệt spare đọc được**. Owner gọi
+    `listOwnersOfMe()` vẫn nhận về đúng row mà chính họ là owner (vì RLS không chặn), rồi
+    code map `row.owner` → hiển thị nhầm "tôi là lốp của [chính tôi]". **Ghi nhớ:** RLS chỉ
+    kiểm soát *quyền đọc 1 row*, không kiểm soát *row đó thuộc danh sách nào trên UI* — khi
+    1 bảng có 2 vai trò khác nhau (owner/spare) cùng được phép đọc, luôn phải tự thêm
+    `.eq('owner_id', myId)` / `.eq('spare_id', myId)` ở phía client cho đúng danh sách, không
+    được suy diễn từ RLS. Đã sửa cả 2 hàm, verify lại bằng 2 tài khoản thật
+    (`thuyduong@gmail.com` là owner, tài khoản còn lại là spare) qua API — kết quả đúng.

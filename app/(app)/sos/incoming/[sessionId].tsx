@@ -43,6 +43,10 @@ export default function IncomingSos() {
 
   useEffect(() => {
     if (!sessionId) return;
+    const topic = `realtime:sos-incoming-${sessionId}`;
+    const existing = supabase.getChannels().find((c) => c.topic === topic);
+    if (existing) supabase.removeChannel(existing);
+
     const channel = supabase
       .channel(`sos-incoming-${sessionId}`)
       .on(

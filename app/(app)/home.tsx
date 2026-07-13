@@ -66,6 +66,12 @@ export default function Home() {
   );
 
   useEffect(() => {
+    // Gỡ kênh cùng tên còn sót lại trước khi tạo mới — tránh lỗi "cannot add
+    // postgres_changes callbacks after subscribe()" khi effect chạy 2 lần
+    // (React Strict Mode / fast refresh) mà cleanup cũ chưa kịp gỡ xong.
+    const existing = supabase.getChannels().find((c) => c.topic === 'realtime:sos-home');
+    if (existing) supabase.removeChannel(existing);
+
     const channel = supabase
       .channel('sos-home')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'sos_responses' }, () => load())

@@ -37,10 +37,6 @@
         }
       ],
       [
-        "react-native-maps",
-        {}
-      ],
-      [
         "expo-notifications",
         {
           "color": "#FF6B35"
