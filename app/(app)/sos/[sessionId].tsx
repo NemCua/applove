@@ -1,5 +1,6 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
+import * as Location from 'expo-location';
 import { ActivityIndicator, Alert, FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
 import { colors } from '../../../lib/theme';
 import { supabase } from '../../../lib/supabase';
@@ -7,6 +8,7 @@ import {
   endSosSession,
   getSosSession,
   listSosResponses,
+  updateSosLocation,
   type SosResponse,
   type SosSession,
 } from '../../../lib/api/sos';
@@ -29,6 +31,8 @@ export default function ActiveSos() {
   const [responses, setResponses] = useState<SosResponse[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isEnding, setIsEnding] = useState(false);
+  const [locationError, setLocationError] = useState<string | null>(null);
+  const watchSubscription = useRef<Location.LocationSubscription | null>(null);
 
   const load = useCallback(async () => {
     if (!sessionId) return;
@@ -70,6 +74,56 @@ export default function ActiveSos() {
       supabase.removeChannel(channel);
     };
   }, [sessionId, load]);
+
+  // Chỉ chia sẻ vị trí khi đã có người đồng ý giúp (CONTEXT.md §4.3) — chưa ai
+  // nhận thì chưa cần bật GPS, đỡ hao pin. Tự dừng khi phiên kết thúc hoặc màn
+  // hình unmount.
+  useEffect(() => {
+    if (!sessionId || !session || session.status !== 'accepted') {
+      watchSubscription.current?.remove();
+      watchSubscription.current = null;
+      return;
+    }
+
+    if (watchSubscription.current) return;
+
+    let cancelled = false;
+
+    (async () => {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (cancelled) return;
+      if (status !== 'granted') {
+        setLocationError('Cần cho phép truy cập vị trí để chia sẻ với người đang giúp bạn.');
+        return;
+      }
+
+      setLocationError(null);
+      const sub = await Location.watchPositionAsync(
+        { accuracy: Location.Accuracy.High, timeInterval: 4000, distanceInterval: 10 },
+        (loc) => {
+          updateSosLocation(sessionId, loc.coords.latitude, loc.coords.longitude).catch((err: any) => {
+            setLocationError(err.message ?? String(err));
+          });
+        }
+      );
+      if (cancelled) {
+        sub.remove();
+        return;
+      }
+      watchSubscription.current = sub;
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [sessionId, session?.status]);
+
+  useEffect(() => {
+    return () => {
+      watchSubscription.current?.remove();
+      watchSubscription.current = null;
+    };
+  }, []);
 
   const handleEnd = () => {
     if (!sessionId) return;
@@ -114,6 +168,12 @@ export default function ActiveSos() {
             <Text style={styles.statusText}>{STATUS_LABEL[session.status]}</Text>
             {session.mode === 'broadcast' && (
               <Text style={styles.statusSub}>Đã nhờ tất cả lốp — {responses.length} người</Text>
+            )}
+            {session.status === 'accepted' && !locationError && (
+              <Text style={styles.statusSub}>📍 Đang chia sẻ vị trí của bạn cho người giúp</Text>
+            )}
+            {session.status === 'accepted' && locationError && (
+              <Text style={[styles.statusSub, styles.statusError]}>⚠️ {locationError}</Text>
             )}
           </View>
           {responses.length > 0 && <Text style={styles.sectionLabel}>Phản hồi</Text>}
@@ -162,6 +222,7 @@ const styles = StyleSheet.create({
   statusCardOk: { backgroundColor: colors.calmDim },
   statusText: { fontSize: 16, fontWeight: '800', color: colors.text },
   statusSub: { fontSize: 13, color: colors.textDim, marginTop: 4 },
+  statusError: { color: colors.danger },
   sectionLabel: {
     fontSize: 12,
     fontWeight: '700',

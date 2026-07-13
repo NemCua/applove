@@ -68,6 +68,38 @@ export async function endSosSession(sessionId: string): Promise<void> {
   if (error) throw error;
 }
 
+export type SosLocation = {
+  sessionId: string;
+  latitude: number;
+  longitude: number;
+  updatedAt: string;
+};
+
+export async function updateSosLocation(sessionId: string, latitude: number, longitude: number): Promise<void> {
+  const { error } = await supabase.rpc('update_sos_location', {
+    p_session_id: sessionId,
+    p_lat: latitude,
+    p_lng: longitude,
+  });
+  if (error) throw error;
+}
+
+export async function getSosLocation(sessionId: string): Promise<SosLocation | null> {
+  const { data, error } = await supabase
+    .from('sos_locations')
+    .select('session_id, latitude, longitude, updated_at')
+    .eq('session_id', sessionId)
+    .maybeSingle();
+  if (error) throw error;
+  if (!data) return null;
+  return {
+    sessionId: data.session_id,
+    latitude: data.latitude,
+    longitude: data.longitude,
+    updatedAt: data.updated_at,
+  };
+}
+
 export async function getSosSession(sessionId: string): Promise<SosSession | null> {
   const { data, error } = await supabase
     .from('sos_sessions')

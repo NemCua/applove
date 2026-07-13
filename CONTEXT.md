@@ -297,3 +297,21 @@ thuộc về A — không tự động tạo quan hệ ngược lại.
     `.eq('owner_id', myId)` / `.eq('spare_id', myId)` ở phía client cho đúng danh sách, không
     được suy diễn từ RLS. Đã sửa cả 2 hàm, verify lại bằng 2 tài khoản thật
     (`thuyduong@gmail.com` là owner, tài khoản còn lại là spare) qua API — kết quả đúng.
+- **2026-07-14** — M4 hoàn tất (vị trí realtime khi đang cầu cứu). Migration
+  `00000000000007_sos_locations.sql`: bảng `sos_locations` (1 row/session, UPSERT đè vị trí
+  cũ — không lưu lịch sử đường đi, xem CONTEXT.md §4.3) + RLS (chỉ owner hoặc
+  `accepted_by` của phiên mới đọc được) + RPC `update_sos_location` (chỉ owner của phiên gọi
+  được, và chỉ khi `status = 'accepted'` — chưa ai nhận thì chưa bật GPS, đỡ hao pin) + bật
+  Realtime. Owner (`sos/[sessionId].tsx`) tự `watchPositionAsync` (accuracy High, mỗi 4s hoặc
+  di chuyển 10m) khi phiên chuyển `accepted`, tự dừng khi phiên kết thúc hoặc unmount. Spare
+  đã accept (`sos/incoming/[sessionId].tsx`) subscribe `sos_locations` qua Realtime, hiển thị
+  `react-native-maps` với marker vị trí owner cập nhật tức thời + nút "Chỉ đường tới đây" mở
+  Google Maps.
+
+  Verify toàn bộ qua API thật (2 tài khoản `thuyduong@gmail.com`/owner và
+  `abc05122005@gnail.com`/spare, cộng 1 tài khoản lạ tạo riêng để test RLS): gửi vị trí trước
+  khi accepted bị chặn (`session_not_accepted`), gửi sau khi accepted thành công, cập nhật
+  lần 2 đúng là UPSERT (vẫn 1 row, không phình bảng), người lạ không đọc được vị trí (RLS) và
+  không giả làm owner để ghi được (`not_allowed`), gửi vị trí sau khi phiên `ended` bị chặn
+  đúng. Không phát hiện bug mới ở phần backend lần này — các RPC đều dùng `is distinct from`
+  ngay từ đầu theo bài học từ M3.
