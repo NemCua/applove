@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter, usePathname } from 'next/navigation';
 import { SosButton } from '../components/SosButton';
 import { SpareListItem } from '../components/SpareListItem';
 import { listMySpares, listOwnersOfMe, removeSpareRelationship, type MySpare, type OwnerOfMe } from '../lib/api/spares';
@@ -24,6 +24,7 @@ function formatRelativeDate(iso: string) {
 
 export default function HomePage() {
   const router = useRouter();
+  const pathname = usePathname();
   const [mySpares, setMySpares] = useState<MySpare[]>([]);
   const [ownersOfMe, setOwnersOfMe] = useState<OwnerOfMe[]>([]);
   const [activeSession, setActiveSession] = useState<SosSession | null>(null);
@@ -47,9 +48,28 @@ export default function HomePage() {
     }
   }, []);
 
+  // Phụ thuộc vào pathname (không phải []) vì router.replace('/') từ màn hình
+  // khác (vd sau khi kết thúc phiên ở /sos/[sessionId]) không unmount lại
+  // component Home Page trong Next.js App Router — nếu chỉ chạy 1 lần lúc mount
+  // thì mỗi lần quay lại "/" sẽ hiện dữ liệu cũ (vd banner "đã có người nhận
+  // giúp" dù phiên đã kết thúc).
   useEffect(() => {
     setIsLoading(true);
     load().finally(() => setIsLoading(false));
+  }, [load, pathname]);
+
+  // Bổ sung: fetch lại khi quay lại app/tab sau khi rời đi hẳn (không qua
+  // router điều hướng nội bộ) — vd khoá màn hình rồi mở lại.
+  useEffect(() => {
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') load();
+    };
+    document.addEventListener('visibilitychange', onVisible);
+    window.addEventListener('focus', onVisible);
+    return () => {
+      document.removeEventListener('visibilitychange', onVisible);
+      window.removeEventListener('focus', onVisible);
+    };
   }, [load]);
 
   useEffect(() => {

@@ -111,5 +111,22 @@ export async function POST(request: NextRequest) {
     }
   }
 
+  if (payload.table === 'sos_sessions' && payload.type === 'UPDATE') {
+    // Phiên vừa kết thúc — nếu đã có người đang giúp (accepted_by), báo cho họ
+    // biết "đã ổn, không cần tới nữa" để họ khỏi phải tự đoán qua việc mở lại app.
+    const session = payload.record;
+    const oldSession = payload.old_record;
+    const justEnded = oldSession?.status !== 'ended' && session.status === 'ended';
+
+    if (justEnded && session.accepted_by) {
+      const { data: owner } = await supabase.from('profiles').select('display_name').eq('id', session.owner_id).single();
+      const ownerName = owner?.display_name ?? 'Người đó';
+
+      await sendPush(supabase, session.accepted_by, `✅ ${ownerName} đã ổn rồi!`, 'Không cần tới giúp nữa, cảm ơn bạn nhé.', {
+        url: `/sos/incoming/${session.id}`,
+      });
+    }
+  }
+
   return NextResponse.json({ ok: true });
 }
