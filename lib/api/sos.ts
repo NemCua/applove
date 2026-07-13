@@ -73,6 +73,7 @@ export async function endSosSession(sessionId: string): Promise<void> {
 
 export type SosLocation = {
   sessionId: string;
+  profileId: string;
   latitude: number;
   longitude: number;
   updatedAt: string;
@@ -88,21 +89,43 @@ export async function updateSosLocation(sessionId: string, latitude: number, lon
   if (error) throw error;
 }
 
-export async function getSosLocation(sessionId: string): Promise<SosLocation | null> {
+// Vị trí của 1 người cụ thể (owner hoặc spare) trong phiên — dùng khi chỉ cần
+// xem vị trí của "người kia".
+export async function getSosLocation(sessionId: string, profileId: string): Promise<SosLocation | null> {
   const supabase = createClient();
   const { data, error } = await supabase
     .from('sos_locations')
-    .select('session_id, latitude, longitude, updated_at')
+    .select('session_id, profile_id, latitude, longitude, updated_at')
     .eq('session_id', sessionId)
+    .eq('profile_id', profileId)
     .maybeSingle();
   if (error) throw error;
   if (!data) return null;
   return {
     sessionId: data.session_id,
+    profileId: data.profile_id,
     latitude: data.latitude,
     longitude: data.longitude,
     updatedAt: data.updated_at,
   };
+}
+
+// Toàn bộ vị trí đang có trong phiên (owner + spare nếu cả 2 đã gửi) — dùng khi
+// cần hiển thị cả 2 điểm trên cùng 1 bản đồ.
+export async function listSosLocations(sessionId: string): Promise<SosLocation[]> {
+  const supabase = createClient();
+  const { data, error } = await supabase
+    .from('sos_locations')
+    .select('session_id, profile_id, latitude, longitude, updated_at')
+    .eq('session_id', sessionId);
+  if (error) throw error;
+  return (data ?? []).map((row: any) => ({
+    sessionId: row.session_id,
+    profileId: row.profile_id,
+    latitude: row.latitude,
+    longitude: row.longitude,
+    updatedAt: row.updated_at,
+  }));
 }
 
 export async function getSosSession(sessionId: string): Promise<SosSession | null> {

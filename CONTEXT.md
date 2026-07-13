@@ -369,3 +369,49 @@ thuộc về A — không tự động tạo quan hệ ngược lại.
   - **Lưu ý bảo mật:** `service_role` key và VAPID private key nằm trong `.env` (đã gitignore).
     `allowedDevOrigins: ['*.ngrok-free.app']` trong next.config.ts chỉ phục vụ test dev qua
     ngrok — vô hại trên production nhưng có thể siết lại sau.
+  - **M5 hoàn tất (2026-07-14):** deploy production tại `https://lop-du-phong.vercel.app`
+    (Vercel project `lop-du-phong`, team `nemcuaa1-2418s-projects`, kết nối GitHub repo
+    `NemCua/applove`, tự deploy khi push `master`). 6 env vars đã set trên cả 3 môi trường
+    (production/preview/development) qua `vercel env add`.
+    - **Trigger tự động** (không qua Supabase Dashboard, dùng `pg_net` trực tiếp — migration
+      `00000000000010`/`00000000000011`): hàm `notify_sos_webhook()` gọi
+      `net.http_post` tới webhook Vercel mỗi khi INSERT/UPDATE `sos_responses` hoặc UPDATE
+      `sos_sessions`. Secret đọc từ bảng `private_config` (RLS khoá hoàn toàn, không có
+      policy nào — chỉ hàm `security definer` đọc được), KHÔNG hardcode trong file migration
+      (tránh leak khi commit). Setup 1 lần ngoài migration:
+      `insert into private_config values ('webhook_secret', '<SUPABASE_WEBHOOK_SECRET>')`.
+    - Webhook route (`app/api/webhooks/sos/route.ts`) xử lý 3 sự kiện: spare mới được nhờ
+      (INSERT sos_responses) → báo spare; spare đồng ý/từ chối (UPDATE sos_responses) → báo
+      owner; **owner kết thúc phiên** (UPDATE sos_sessions, status→ended) → báo spare đang
+      giúp "đã ổn, không cần tới nữa" (thêm sau khi user phản hồi thiếu tính năng này).
+    - **Bug đã sửa:** trang chủ không tự refresh khi quay lại sau khi kết thúc phiên ở màn
+      hình khác — do Next.js App Router không unmount lại component khi
+      `router.replace('/')` từ route khác, nên `useEffect([])` chỉ chạy 1 lần lúc mount đầu
+      tiên. Sửa: đổi dependency thành `[load, pathname]` (dùng `usePathname()`) để tự fetch
+      lại mỗi khi điều hướng về `/`.
+    - Verify end-to-end qua API thật (không qua UI): tạo session → accept → end, cả 3 lần
+      gọi webhook đều trả `200 {"ok":true}`, push tới iPhone thật xác nhận nhận được ở cả 3
+      mốc (mời/đồng ý/kết thúc).
+- **2026-07-14 — Nâng cấp bản đồ lên 2 chiều + giao diện dark mode.** Trước đó chỉ owner gửi
+  vị trí cho spare xem (1 chiều, M4). Theo yêu cầu user ("lốp nhận nhiệm vụ cũng cập nhật vị
+  trí realtime", "bản đồ đẹp/trẻ trung hơn"):
+  - Migration `00000000000012`: đổi khoá chính `sos_locations` từ `session_id` (1 row/phiên)
+    sang `(session_id, profile_id)` (1 row/người/phiên) — giờ chứa cả vị trí owner lẫn spare
+    đang giúp. RLS mới: cả owner và `accepted_by` xem được vị trí của NHAU (trước chỉ owner
+    ghi, spare đọc một chiều). RPC `update_sos_location` bỏ ràng buộc "chỉ owner gọi được",
+    giờ cho phép cả owner lẫn accepted_by tự gửi vị trí của chính mình (nhận diện qua
+    `auth.uid()`, không cần tham số role).
+    - **Lỗi gặp lúc migrate (đã xử lý)**: `alter table ... drop constraint pkey` xong không
+      thể `alter column set not null` ngay vì có 6 row cũ với `profile_id` NULL (chưa
+      backfill) — Postgres báo lỗi rõ ràng, phải chạy UPDATE backfill (gán `profile_id =
+      owner_id` từ `sos_sessions`) TRƯỚC khi set NOT NULL/primary key. Đã cập nhật lại thứ tự
+      trong file migration cho khớp thực tế đã chạy.
+  - `components/SosMap.tsx` (thay `OwnerLocationMap.tsx` cũ): CartoDB Dark Matter tiles
+    (`{s}.basemaps.cartocdn.com/dark_all`, miễn phí không cần API key) khớp theme tối của
+    app; marker tự vẽ bằng CSS (chấm tròn + vòng pulse animation) thay icon pin mặc định xấu
+    của Leaflet; hỗ trợ nhiều điểm cùng lúc với `fitBounds` tự động zoom vừa khung hình cả 2
+    người. Cả 2 màn hình SOS giờ tự `watchPosition` gửi vị trí của chính mình khi phiên
+    `accepted`, và hiển thị cả 2 điểm (owner màu cam `accent`, spare màu xanh `calm`) trên
+    cùng bản đồ.
+  - Verify qua API thật: owner và spare cùng gửi vị trí, cả 2 phía đều đọc được đúng cả 2
+    điểm qua `sos_locations`; người lạ không liên quan vẫn bị RLS chặn hoàn toàn.

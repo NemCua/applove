@@ -1,24 +1,33 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import dynamic from 'next/dynamic';
-import { getSosLocation, getSosSession, respondToSos, type SosLocation, type SosSession } from '../../../../lib/api/sos';
+import {
+  listSosLocations,
+  getSosSession,
+  respondToSos,
+  updateSosLocation,
+  type SosLocation,
+  type SosSession,
+} from '../../../../lib/api/sos';
 import { createClient } from '../../../../lib/supabase/client';
+import type { MapPoint } from '../../../../components/SosMap';
 
-const OwnerLocationMap = dynamic(() => import('../../../../components/OwnerLocationMap').then((m) => m.OwnerLocationMap), {
-  ssr: false,
-});
+const SosMap = dynamic(() => import('../../../../components/SosMap').then((m) => m.SosMap), { ssr: false });
 
 export default function IncomingSosPage() {
   const { sessionId } = useParams<{ sessionId: string }>();
   const router = useRouter();
   const [session, setSession] = useState<SosSession | null>(null);
   const [ownerName, setOwnerName] = useState('');
+  const [myId, setMyId] = useState<string | null>(null);
   const [myStatus, setMyStatus] = useState<'pending' | 'accepted' | 'declined'>('pending');
   const [isLoading, setIsLoading] = useState(true);
   const [isResponding, setIsResponding] = useState(false);
-  const [location, setLocation] = useState<SosLocation | null>(null);
+  const [locations, setLocations] = useState<SosLocation[]>([]);
+  const [locationError, setLocationError] = useState<string | null>(null);
+  const watchId = useRef<number | null>(null);
 
   const load = useCallback(async () => {
     if (!sessionId) return;
@@ -30,6 +39,7 @@ export default function IncomingSosPage() {
       setOwnerName(owner?.display_name ?? '');
 
       const { data: userData } = await supabase.auth.getUser();
+      setMyId(userData.user?.id ?? null);
       const { data: myResponse } = await supabase
         .from('sos_responses')
         .select('status')
@@ -68,31 +78,72 @@ export default function IncomingSosPage() {
     };
   }, [sessionId, load]);
 
-  // Chỉ subscribe vị trí owner khi mình đúng là người đã được nhận giúp — RLS
-  // cũng chặn ở tầng DB, nhưng tự giới hạn ở đây tránh gọi thừa realtime channel.
+  // Chỉ subscribe vị trí khi mình đúng là người đã được nhận giúp — RLS cũng
+  // chặn ở tầng DB, nhưng tự giới hạn ở đây tránh gọi thừa realtime channel.
   useEffect(() => {
     if (!sessionId || myStatus !== 'accepted') return;
     const supabase = createClient();
 
-    getSosLocation(sessionId).then(setLocation).catch(() => {});
+    listSosLocations(sessionId).then(setLocations).catch(() => {});
 
-    const topic = `realtime:sos-location-${sessionId}`;
+    const topic = `realtime:sos-locations-${sessionId}`;
     const existing = supabase.getChannels().find((c) => c.topic === topic);
     if (existing) supabase.removeChannel(existing);
 
     const channel = supabase
-      .channel(`sos-location-${sessionId}`)
+      .channel(`sos-locations-${sessionId}`)
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'sos_locations', filter: `session_id=eq.${sessionId}` },
         () => {
-          getSosLocation(sessionId).then(setLocation).catch(() => {});
+          listSosLocations(sessionId).then(setLocations).catch(() => {});
         }
       )
       .subscribe();
 
     return () => {
       supabase.removeChannel(channel);
+    };
+  }, [sessionId, myStatus]);
+
+  // Spare đang giúp cũng gửi vị trí của mình (chiều mới) — để owner xem được
+  // mình đang tới đâu rồi, tương tự cách owner đã chia sẻ vị trí từ M4.
+  useEffect(() => {
+    if (!sessionId || myStatus !== 'accepted') {
+      if (watchId.current !== null) {
+        navigator.geolocation.clearWatch(watchId.current);
+        watchId.current = null;
+      }
+      return;
+    }
+
+    if (watchId.current !== null) return;
+
+    if (!('geolocation' in navigator)) {
+      setLocationError('Trình duyệt không hỗ trợ định vị.');
+      return;
+    }
+
+    setLocationError(null);
+    watchId.current = navigator.geolocation.watchPosition(
+      (position) => {
+        updateSosLocation(sessionId, position.coords.latitude, position.coords.longitude).catch((err: any) => {
+          setLocationError(err.message ?? String(err));
+        });
+      },
+      (err) => {
+        setLocationError(
+          err.code === err.PERMISSION_DENIED ? 'Cần cho phép truy cập vị trí để chia sẻ với người đang cần giúp.' : err.message
+        );
+      },
+      { enableHighAccuracy: true, maximumAge: 4000 }
+    );
+
+    return () => {
+      if (watchId.current !== null) {
+        navigator.geolocation.clearWatch(watchId.current);
+        watchId.current = null;
+      }
     };
   }, [sessionId, myStatus]);
 
@@ -165,20 +216,28 @@ export default function IncomingSosPage() {
   }
 
   if (myStatus === 'accepted') {
+    const ownerLocation = locations.find((l) => l.profileId === session.ownerId);
+    const myLocation = locations.find((l) => l.profileId === myId);
+
+    const mapPoints: MapPoint[] = [];
+    if (ownerLocation) mapPoints.push({ latitude: ownerLocation.latitude, longitude: ownerLocation.longitude, label: ownerName, color: 'accent' });
+    if (myLocation) mapPoints.push({ latitude: myLocation.latitude, longitude: myLocation.longitude, label: 'Vị trí của bạn', color: 'calm' });
+
     return (
       <div className="flex h-full flex-1 flex-col p-5">
         <div className="mb-3 rounded-[20px] bg-accent-dim p-[22px]">
           <p className="mb-1.5 text-[11px] font-extrabold tracking-wide text-white/70 uppercase">Đang giúp</p>
           <h1 className="text-center text-xl font-extrabold text-text">{ownerName} cần bạn tới giúp</h1>
+          {locationError && <p className="mt-2 text-center text-[12.5px] text-danger">⚠️ {locationError}</p>}
         </div>
 
-        {location ? (
+        {ownerLocation ? (
           <>
-            <div className="mb-3 h-[50vh] min-h-[300px] flex-1 overflow-hidden rounded-2xl">
-              <OwnerLocationMap latitude={location.latitude} longitude={location.longitude} ownerName={ownerName} />
+            <div className="mb-3 h-[50vh] min-h-[300px] flex-1 overflow-hidden rounded-2xl border border-border">
+              <SosMap points={mapPoints} />
             </div>
             <a
-              href={`https://www.google.com/maps/dir/?api=1&destination=${location.latitude},${location.longitude}`}
+              href={`https://www.google.com/maps/dir/?api=1&destination=${ownerLocation.latitude},${ownerLocation.longitude}`}
               target="_blank"
               rel="noopener noreferrer"
               className="mb-3 block w-full rounded-2xl bg-calm py-3.5 text-center text-[15px] font-extrabold text-white"
