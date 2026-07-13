@@ -1,0 +1,10 @@
+{
+  "name": "Lốp Dự Phòng",
+  "short_name": "Lốp Dự Phòng",
+  "description": "Cầu cứu bạn bè khi gặp sự cố xe cộ",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0E1116",
+  "theme_color": "#0E1116",
+  "icons": []
+}

@@ -1,4 +1,4 @@
-import { supabase } from '../supabase';
+import { createClient } from '../supabase/client';
 
 export type SosMode = 'broadcast' | 'direct';
 export type SosSessionStatus = 'active' | 'accepted' | 'ended';
@@ -47,6 +47,7 @@ function mapKnownError(err: any, table: Record<string, string>): Error {
 }
 
 export async function createSosSession(mode: SosMode, targetSpareId?: string): Promise<string> {
+  const supabase = createClient();
   const { data, error } = await supabase.rpc('create_sos_session', {
     p_mode: mode,
     p_target_spare_id: targetSpareId ?? null,
@@ -56,6 +57,7 @@ export async function createSosSession(mode: SosMode, targetSpareId?: string): P
 }
 
 export async function respondToSos(sessionId: string, accept: boolean): Promise<void> {
+  const supabase = createClient();
   const { error } = await supabase.rpc('respond_to_sos', {
     p_session_id: sessionId,
     p_accept: accept,
@@ -64,6 +66,7 @@ export async function respondToSos(sessionId: string, accept: boolean): Promise<
 }
 
 export async function endSosSession(sessionId: string): Promise<void> {
+  const supabase = createClient();
   const { error } = await supabase.rpc('end_sos_session', { p_session_id: sessionId });
   if (error) throw error;
 }
@@ -76,6 +79,7 @@ export type SosLocation = {
 };
 
 export async function updateSosLocation(sessionId: string, latitude: number, longitude: number): Promise<void> {
+  const supabase = createClient();
   const { error } = await supabase.rpc('update_sos_location', {
     p_session_id: sessionId,
     p_lat: latitude,
@@ -85,6 +89,7 @@ export async function updateSosLocation(sessionId: string, latitude: number, lon
 }
 
 export async function getSosLocation(sessionId: string): Promise<SosLocation | null> {
+  const supabase = createClient();
   const { data, error } = await supabase
     .from('sos_locations')
     .select('session_id, latitude, longitude, updated_at')
@@ -101,6 +106,7 @@ export async function getSosLocation(sessionId: string): Promise<SosLocation | n
 }
 
 export async function getSosSession(sessionId: string): Promise<SosSession | null> {
+  const supabase = createClient();
   const { data, error } = await supabase
     .from('sos_sessions')
     .select('id, owner_id, mode, target_spare_id, status, accepted_by, created_at, ended_at, ended_by')
@@ -122,6 +128,7 @@ export async function getSosSession(sessionId: string): Promise<SosSession | nul
 }
 
 export async function listSosResponses(sessionId: string): Promise<SosResponse[]> {
+  const supabase = createClient();
   const { data, error } = await supabase
     .from('sos_responses')
     .select('id, session_id, spare_id, status, responded_at, created_at, spare:profiles!sos_responses_spare_id_fkey(id, display_name)')
@@ -142,6 +149,7 @@ export async function listSosResponses(sessionId: string): Promise<SosResponse[]
 // Phiên cầu cứu đang active/accepted mà mình là owner (nếu có), để home screen
 // hiện banner "đang cầu cứu" và cho vào lại màn hình sos/[sessionId].
 export async function getMyActiveSosSession(): Promise<SosSession | null> {
+  const supabase = createClient();
   const { data, error } = await supabase
     .from('sos_sessions')
     .select('id, owner_id, mode, target_spare_id, status, accepted_by, created_at, ended_at, ended_by')
@@ -168,13 +176,16 @@ export async function getMyActiveSosSession(): Promise<SosSession | null> {
 export async function listIncomingSosRequests(): Promise<
   Array<{ response: SosResponse; session: SosSession; owner: { id: string; display_name: string } }>
 > {
+  const supabase = createClient();
+  const { data: userData } = await supabase.auth.getUser();
+
   const { data, error } = await supabase
     .from('sos_responses')
     .select(
       'id, session_id, spare_id, status, responded_at, created_at, ' +
         'session:sos_sessions!inner(id, owner_id, mode, target_spare_id, status, accepted_by, created_at, ended_at, ended_by, owner:profiles!sos_sessions_owner_id_fkey(id, display_name))'
     )
-    .eq('spare_id', (await supabase.auth.getUser()).data.user?.id ?? '')
+    .eq('spare_id', userData.user?.id ?? '')
     .eq('status', 'pending')
     .eq('session.status', 'active')
     .order('created_at', { ascending: false });

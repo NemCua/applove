@@ -1,4 +1,4 @@
-import { supabase } from '../supabase';
+import { createClient } from '../supabase/client';
 
 export type SpareProfile = {
   id: string;
@@ -19,6 +19,7 @@ export type OwnerOfMe = {
 
 // Những người mình đã thêm làm lốp (mình là owner)
 export async function listMySpares(): Promise<MySpare[]> {
+  const supabase = createClient();
   const { data: userData } = await supabase.auth.getUser();
   const myId = userData.user?.id;
   if (!myId) return [];
@@ -44,6 +45,7 @@ export async function listMySpares(): Promise<MySpare[]> {
 
 // Những người mà mình là lốp của họ (mình là spare)
 export async function listOwnersOfMe(): Promise<OwnerOfMe[]> {
+  const supabase = createClient();
   const { data: userData } = await supabase.auth.getUser();
   const myId = userData.user?.id;
   if (!myId) return [];
@@ -64,6 +66,7 @@ export async function listOwnersOfMe(): Promise<OwnerOfMe[]> {
 }
 
 export async function removeSpareRelationship(relationshipId: string) {
+  const supabase = createClient();
   const { error } = await supabase.from('spare_relationships').delete().eq('id', relationshipId);
   if (error) throw error;
 }

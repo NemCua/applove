@@ -1,6 +1,7 @@
-import { supabase } from '../supabase';
+import { createClient } from '../supabase/client';
 
 export async function createInviteCode(): Promise<{ code: string; expiresAt: string }> {
+  const supabase = createClient();
   const { data, error } = await supabase
     .from('invite_codes')
     .insert({})
@@ -24,6 +25,7 @@ const REDEEM_ERROR_MESSAGES: Record<string, string> = {
 };
 
 export async function redeemInviteCode(code: string): Promise<RedeemResult> {
+  const supabase = createClient();
   const { data, error } = await supabase.rpc('redeem_invite_code', { p_code: code.trim() });
 
   if (error) {

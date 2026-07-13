@@ -127,13 +127,29 @@ thuộc về A — không tự động tạo quan hệ ngược lại.
 
 ## 7. Stack kỹ thuật đã chọn
 
-- **Framework:** Expo (React Native), viết bằng **TypeScript**.
-- **Bản đồ & vị trí:** `expo-location` (lấy GPS), `react-native-maps` (hiển thị bản đồ) — đã
-  cài đặt sẵn trong project, có demo cơ bản ở [App.tsx](App.tsx).
-- **Database:** PostgreSQL — cụ thể Neon hay Supabase, xem mục 6 (đang chờ xác nhận).
-- **Lưu ý môi trường:** Node hiện tại trên máy dev là v20.9.0, một số package (React Native
-  0.86, Metro, react-native-maps) khuyến nghị Node ≥ 20.19.4 — chưa gây lỗi nhưng nên nâng cấp
-  Node nếu gặp lỗi build khó hiểu về sau.
+> **QUAN TRỌNG (2026-07-14):** Dự án đã **chuyển từ Expo/React Native sang Next.js (web app
+> / PWA)**. Lý do đầy đủ ở mục 13. Toàn bộ backend Supabase (schema, RLS, RPC, migration
+> M1–M4) giữ nguyên; chỉ phần client được viết lại. Stack cũ (Expo) chỉ còn giá trị lịch sử.
+
+- **Framework hiện tại:** **Next.js 16 (App Router, Turbopack) + TypeScript + Tailwind v4**,
+  host trên **Vercel**, chạy như PWA (Add to Home Screen trên iOS để có Web Push).
+  - Supabase client qua `@supabase/ssr` (`lib/supabase/client.ts` cho browser,
+    `server.ts` cho server component, `proxy.ts` cho middleware refresh session).
+  - Next.js 16 đổi tên `middleware` → `proxy` (file `proxy.ts` ở root). Dynamic route params
+    là Promise (dùng `useParams()` ở client component).
+- **Bản đồ & vị trí:** `navigator.geolocation.watchPosition` (GPS trình duyệt) +
+  **Leaflet/react-leaflet** (bản đồ, OpenStreetMap tiles — miễn phí, không cần API key). Map
+  render client-only qua `next/dynamic` với `ssr: false` (`components/OwnerLocationMap.tsx`).
+- **Push notification:** **Web Push (VAPID)** thay cho Expo Notifications. Service Worker
+  ở `public/sw.js`, đăng ký subscription qua `lib/push-client.ts`, gửi push từ Next.js API
+  route `app/api/webhooks/sos/route.ts` (dùng thư viện `web-push`), được Supabase Database
+  Webhook / trigger gọi tới khi có INSERT/UPDATE trên `sos_responses`.
+- **Database:** Supabase (PostgreSQL) — không đổi.
+- **Môi trường dev:** Node đã nâng lên v24.18.0 LTS qua nvm (xem lịch sử 2026-07-14).
+
+### Stack cũ (Expo — đã bỏ, chỉ để tham khảo lịch sử)
+- Expo SDK 54 (React Native), `expo-location`, `react-native-maps`, `expo-notifications`.
+- Vẫn xem được qua git history nếu cần khôi phục logic.
 
 ---
 
@@ -315,3 +331,41 @@ thuộc về A — không tự động tạo quan hệ ngược lại.
   không giả làm owner để ghi được (`not_allowed`), gửi vị trí sau khi phiên `ended` bị chặn
   đúng. Không phát hiện bug mới ở phần backend lần này — các RPC đều dùng `is distinct from`
   ngay từ đầu theo bài học từ M3.
+- **2026-07-14 — QUYẾT ĐỊNH LỚN: chuyển từ Expo/React Native sang Next.js (web/PWA).** Bối
+  cảnh: khi build app native iOS để test push thật, phát hiện chuỗi rào cản của Apple:
+  (1) Expo Go từ SDK 53+ **không còn hỗ trợ remote push** — chỉ development build mới có;
+  (2) build/ký app iOS qua EAS cloud **bắt buộc Apple Developer Program $99/năm** (không còn
+  tier miễn phí — nút "Enroll" trên developer.apple.com nay luôn là gói trả phí); (3) cách
+  "tin cậy nhà phát triển" miễn phí (CONTEXT.md §8) chỉ ký được qua **Xcode cắm cáp local**,
+  không dùng được EAS cloud. Người dùng không muốn trả $99, cũng không muốn cài Xcode.
+  - Đã cân nhắc Web Push trên iOS: nghiên cứu kỹ (agent research) cho thấy có rủi ro
+    subscription tự chết âm thầm, mất ở EU, yêu cầu Add-to-Home-Screen — **về lý thuyết không
+    lý tưởng cho app khẩn cấp.** Nhưng người dùng đã **tự test thực tế trên iPhone của mình
+    và xác nhận Web Push chạy tốt** → quyết định chấp nhận đánh đổi, chuyển hẳn sang web để
+    được miễn phí + không phụ thuộc Apple. (Nhóm bạn bè nhỏ, không ở EU, nên các rủi ro trên
+    ít ảnh hưởng thực tế.)
+  - **Bỏ Expo Notifications**, migration `00000000000009_web_push_migration.sql`: đổi
+    `push_tokens` từ `expo_push_token` (1 cột) sang Web Push subscription (`endpoint`,
+    `p256dh`, `auth`); gỡ hàm `send_push_notification`/pg_net khỏi các RPC (create_sos_session,
+    respond_to_sos) — việc gửi push chuyển sang Next.js API route.
+  - Viết lại toàn bộ 8 màn hình bằng React/Next.js + Tailwind, tái dùng 100% logic API từ git
+    history (chỉ đổi `View/Text/StyleSheet` → `div/p/className`, `expo-location` →
+    `navigator.geolocation`, `react-native-maps` → Leaflet, `Alert` → `alert/confirm`,
+    `Share` → `navigator.share`). Backend Supabase không đổi.
+  - **Đã verify Web Push thật chạy end-to-end:** gọi `POST /api/webhooks/sos` với secret đúng
+    → gửi push tới `web.push.apple.com`, iPhone (tài khoản `abc05122005@gmail.com`) nhận được
+    thông báo "🆘 thuyduong đang cần giúp!". Webhook trả 401 khi thiếu auth (đúng).
+  - **Bug đã sửa lúc test:** (a) `proxy.ts` matcher ban đầu áp lên cả `/api/*` → redirect
+    webhook về `/login` (401→303). Sửa: thêm `api` vào negative-lookahead của matcher.
+    (b) `autoCapitalize="none"` (thuộc tính RN) vô nghĩa trên web — bỏ qua, không phải nguồn
+    lỗi login. (c) Email tài khoản test `abc0512` bị gõ sai `@gnail.com` từ lúc đăng ký M1 —
+    sửa trực tiếp qua SQL update `auth.users.email` + `auth.identities.identity_data->email`.
+  - **CÒN LẠI của M5:** cấu hình để trigger tự động gọi webhook (Database Webhook qua Dashboard
+    hoặc trigger `pg_net` tự viết) mỗi khi INSERT/UPDATE `sos_responses` — cần URL cố định nên
+    **quyết định deploy lên Vercel trước**, rồi trỏ webhook vào URL Vercel. Env cần set trên
+    Vercel: `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`,
+    `NEXT_PUBLIC_VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `SUPABASE_SERVICE_ROLE_KEY`,
+    `SUPABASE_WEBHOOK_SECRET` (giá trị trong `.env` local, KHÔNG commit).
+  - **Lưu ý bảo mật:** `service_role` key và VAPID private key nằm trong `.env` (đã gitignore).
+    `allowedDevOrigins: ['*.ngrok-free.app']` trong next.config.ts chỉ phục vụ test dev qua
+    ngrok — vô hại trên production nhưng có thể siết lại sau.

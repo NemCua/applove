@@ -1,5 +1,4 @@
-import { Pressable, StyleSheet, Text, View } from 'react-native';
-import { colors } from '../lib/theme';
+'use client';
 
 const AVATAR_COLORS = ['#4C8DFF', '#E85A9C', '#8A5FE8', '#3DD68C', '#FF6B35'];
 
@@ -19,45 +18,22 @@ export function SpareListItem({ displayName, subtitle, personId, onRemove }: Pro
   const initial = displayName.trim().charAt(0).toUpperCase() || '?';
 
   return (
-    <View style={styles.row}>
-      <View style={[styles.avatar, { backgroundColor: avatarColorFor(personId) }]}>
-        <Text style={styles.avatarText}>{initial}</Text>
-      </View>
-      <View style={styles.info}>
-        <Text style={styles.name}>{displayName}</Text>
-        <Text style={styles.sub}>{subtitle}</Text>
-      </View>
+    <div className="flex items-center gap-3 rounded-2xl border border-border bg-surface-2 p-3">
+      <div
+        className="flex h-[38px] w-[38px] shrink-0 items-center justify-center rounded-full text-sm font-bold text-white"
+        style={{ backgroundColor: avatarColorFor(personId) }}
+      >
+        {initial}
+      </div>
+      <div className="min-w-0 flex-1">
+        <p className="truncate text-[14.5px] font-bold text-text">{displayName}</p>
+        <p className="mt-0.5 truncate text-[12.5px] text-text-dim">{subtitle}</p>
+      </div>
       {onRemove && (
-        <Pressable onPress={onRemove} hitSlop={8} style={styles.removeBtn}>
-          <Text style={styles.removeText}>Xoá</Text>
-        </Pressable>
+        <button onClick={onRemove} className="px-2 py-1 text-[12.5px] font-semibold text-danger">
+          Xoá
+        </button>
       )}
-    </View>
+    </div>
   );
 }
-
-const styles = StyleSheet.create({
-  row: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    backgroundColor: colors.surface2,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 14,
-    padding: 12,
-  },
-  avatar: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  avatarText: { color: '#fff', fontWeight: '700', fontSize: 14 },
-  info: { flex: 1, minWidth: 0 },
-  name: { fontSize: 14.5, fontWeight: '700', color: colors.text },
-  sub: { fontSize: 12.5, color: colors.textDim, marginTop: 1 },
-  removeBtn: { paddingHorizontal: 8, paddingVertical: 4 },
-  removeText: { color: colors.danger, fontSize: 12.5, fontWeight: '600' },
-});

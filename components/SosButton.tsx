@@ -1,38 +1,13 @@
-import { Pressable, StyleSheet, Text, View } from 'react-native';
-import { colors } from '../lib/theme';
+'use client';
 
 export function SosButton({ onPress }: { onPress: () => void }) {
   return (
-    <View style={styles.card}>
-      <Text style={styles.label}>Khẩn cấp</Text>
-      <Text style={styles.title}>Xe hỏng, hết xăng, bể bánh?</Text>
-      <Pressable style={styles.button} onPress={onPress}>
-        <Text style={styles.buttonText}>🆘 Cầu cứu ngay</Text>
-      </Pressable>
-    </View>
+    <div className="rounded-[20px] bg-accent p-5">
+      <p className="mb-1.5 text-[11px] font-extrabold tracking-wide text-white/85 uppercase">Khẩn cấp</p>
+      <p className="mb-3.5 text-[19px] leading-6 font-extrabold text-white">Xe hỏng, hết xăng, bể bánh?</p>
+      <button onClick={onPress} className="w-full rounded-[14px] bg-white py-3.5 text-[15px] font-extrabold text-[#C4441C]">
+        🆘 Cầu cứu ngay
+      </button>
+    </div>
   );
 }
-
-const styles = StyleSheet.create({
-  card: {
-    backgroundColor: colors.accent,
-    borderRadius: 20,
-    padding: 20,
-  },
-  label: {
-    fontSize: 11,
-    fontWeight: '800',
-    letterSpacing: 1,
-    textTransform: 'uppercase',
-    color: 'rgba(255,255,255,0.85)',
-    marginBottom: 6,
-  },
-  title: { fontSize: 19, fontWeight: '800', color: '#fff', marginBottom: 14, lineHeight: 24 },
-  button: {
-    backgroundColor: '#fff',
-    borderRadius: 14,
-    paddingVertical: 13,
-    alignItems: 'center',
-  },
-  buttonText: { color: '#C4441C', fontWeight: '800', fontSize: 15 },
-});
