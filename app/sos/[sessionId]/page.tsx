@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import dynamic from 'next/dynamic';
+import { CircleAlert, CircleCheck, MapPin, TriangleAlert } from 'lucide-react';
 import {
   endSosSession,
   getSosSession,
@@ -190,23 +191,36 @@ export default function ActiveSosPage() {
     });
   }
 
+  const StatusIcon = session.status === 'accepted' ? CircleCheck : TriangleAlert;
+
   return (
     <div className="mx-auto flex h-full w-full max-w-lg flex-col p-5 pb-8">
-      <h1 className="mb-3.5 text-[22px] font-extrabold text-text">Đang cầu cứu</h1>
+      <h1 className="mb-4 text-[20px] font-semibold tracking-tight text-text">Đang cầu cứu</h1>
 
-      <div className={`mb-5 rounded-2xl p-[18px] ${session.status === 'accepted' ? 'bg-calm-dim' : 'bg-accent-dim'}`}>
-        <p className="text-base font-extrabold text-text">{STATUS_LABEL[session.status]}</p>
-        {session.mode === 'broadcast' && (
-          <p className="mt-1 text-[13px] text-text-dim">Đã nhờ tất cả lốp — {responses.length} người</p>
-        )}
-        {session.status === 'accepted' && !locationError && (
-          <p className="mt-1 text-[13px] text-text-dim">📍 Đang chia sẻ vị trí của bạn cho người giúp</p>
-        )}
-        {session.status === 'accepted' && locationError && <p className="mt-1 text-[13px] text-danger">⚠️ {locationError}</p>}
+      <div className={`mb-5 flex items-start gap-3 rounded-xl p-4 ${session.status === 'accepted' ? 'bg-calm-dim' : 'bg-accent-dim'}`}>
+        <StatusIcon size={19} strokeWidth={2} className={`mt-0.5 shrink-0 ${session.status === 'accepted' ? 'text-calm' : 'text-accent'}`} />
+        <div className="min-w-0">
+          <p className="text-[15px] font-medium text-text">{STATUS_LABEL[session.status]}</p>
+          {session.mode === 'broadcast' && (
+            <p className="mt-1 text-[13px] text-text-dim">Đã nhờ tất cả lốp — {responses.length} người</p>
+          )}
+          {session.status === 'accepted' && !locationError && (
+            <div className="mt-1.5 flex items-center gap-1.5 text-[13px] text-text-dim">
+              <MapPin size={13} strokeWidth={2} />
+              Đang chia sẻ vị trí của bạn cho người giúp
+            </div>
+          )}
+          {session.status === 'accepted' && locationError && (
+            <div className="mt-1.5 flex items-center gap-1.5 text-[13px] text-danger">
+              <CircleAlert size={13} strokeWidth={2} />
+              {locationError}
+            </div>
+          )}
+        </div>
       </div>
 
       {session.status === 'accepted' && (
-        <div className="mb-5 h-[45vh] min-h-[280px] overflow-hidden rounded-2xl border border-border">
+        <div className="mb-5 h-[45vh] min-h-70 overflow-hidden rounded-xl border border-border">
           {mapPoints.length > 0 ? (
             <SosMap points={mapPoints} />
           ) : (
@@ -219,13 +233,13 @@ export default function ActiveSosPage() {
 
       {responses.length > 0 && (
         <>
-          <p className="mb-2.5 text-xs font-bold tracking-wide text-text-faint uppercase">Phản hồi</p>
-          <div className="mb-1 flex flex-col gap-2.5">
+          <p className="mb-2.5 text-xs font-medium tracking-wide text-text-faint uppercase">Phản hồi</p>
+          <div className="mb-1 flex flex-col gap-2">
             {responses.map((item) => (
-              <div key={item.id} className="flex items-center justify-between rounded-2xl border border-border bg-surface-2 p-3">
-                <p className="text-[14.5px] font-bold text-text">{item.spare.display_name}</p>
+              <div key={item.id} className="flex items-center justify-between rounded-xl border border-border bg-surface-2 p-3">
+                <p className="text-[14.5px] font-medium text-text">{item.spare.display_name}</p>
                 <p
-                  className={`text-[12.5px] font-semibold ${
+                  className={`text-[12.5px] font-medium ${
                     item.status === 'accepted' ? 'text-ok' : item.status === 'declined' ? 'text-danger' : 'text-text-dim'
                   }`}
                 >
@@ -241,14 +255,14 @@ export default function ActiveSosPage() {
         <button
           onClick={handleEnd}
           disabled={isEnding}
-          className="mt-5 w-full rounded-2xl border border-border bg-surface-2 py-3.5 text-[14.5px] font-bold text-text disabled:opacity-50"
+          className="mt-5 w-full rounded-xl border border-border bg-surface-2 py-3.5 text-[14.5px] font-medium text-text transition-colors active:bg-surface disabled:opacity-50"
         >
           {isEnding ? 'Đang xử lý...' : 'Kết thúc phiên (đã ổn)'}
         </button>
       ) : (
         <button
           onClick={() => router.replace('/')}
-          className="mt-5 w-full rounded-2xl border border-border bg-surface-2 py-3.5 text-[14.5px] font-bold text-text"
+          className="mt-5 w-full rounded-xl border border-border bg-surface-2 py-3.5 text-[14.5px] font-medium text-text transition-colors active:bg-surface"
         >
           Về trang chủ
         </button>

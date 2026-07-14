@@ -415,3 +415,22 @@ thuộc về A — không tự động tạo quan hệ ngược lại.
     cùng bản đồ.
   - Verify qua API thật: owner và spare cùng gửi vị trí, cả 2 phía đều đọc được đúng cả 2
     điểm qua `sos_locations`; người lạ không liên quan vẫn bị RLS chặn hoàn toàn.
+- **2026-07-14 — Custom lại toàn bộ UI theo hướng "nhẹ nhàng, tinh tế" (gu thiết kế
+  Claude/Lucide)**, theo yêu cầu user. Thay đổi:
+  - Cài `lucide-react`, bỏ hoàn toàn emoji (🆘 📍 🟢 ⚠️ v.v.) trong toàn app, thay bằng icon
+    outline nét mỏng (`TriangleAlert`, `MapPin`, `CircleCheck`, `Mail`, `Lock`, `Users`,
+    `Navigation`, `Check`, `X`, v.v.), stroke-width nhất quán 2 (2.25 cho icon cần nổi bật
+    hơn như nút xác nhận).
+  - Đổi bảng màu (`app/globals.css`) từ tông đen-xanh lạnh (`#0E1116`, accent cam sáng
+    `#FF6B35`) sang tông đen ấm (`#141310`) + accent cam đất trầm (`#D97757`) — bớt "công
+    nghiệp/neon", gần với ngôn ngữ màu Claude.ai hơn. Thêm cặp `-dim` cho `danger`/`ok` để
+    dùng làm nền card nhạt (trước chỉ có `accent-dim`/`calm-dim`).
+  - Giảm font-weight nhìn chung (`font-extrabold`/`font-bold` cũ → `font-semibold`/
+    `font-medium`), bỏ `rounded-2xl` dùng tràn lan → phần lớn về `rounded-xl` nhất quán hơn;
+    thêm `focus:border-accent` cho input, `active:opacity-90`/`active:bg-surface` cho nút bấm
+    để có phản hồi chạm rõ ràng hơn (trước hoàn toàn tĩnh).
+  - Tất cả trang con (`add-spare`, `sos/new`, `settings`) đều thêm nút "Quay lại" có icon
+    `ArrowLeft` ở đầu trang — trước đây phải dùng nút back của trình duyệt/hệ thống.
+  - Đã tự verify bằng Playwright chụp ảnh 4 màn hình chính (login, home, sos/new, add-spare,
+    settings) trên viewport mobile (390×844) trước khi deploy — không phát hiện lỗi
+    chồng/lệch layout.

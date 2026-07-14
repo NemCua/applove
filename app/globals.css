@@ -1,19 +1,21 @@
 @import "tailwindcss";
 
 :root {
-  --color-bg: #0e1116;
-  --color-surface: #181c24;
-  --color-surface-2: #1f2430;
-  --color-border: #2a2f3b;
-  --color-text: #edeff2;
-  --color-text-dim: #8890a0;
-  --color-text-faint: #565d6d;
-  --color-accent: #ff6b35;
-  --color-accent-dim: #7a3a1f;
-  --color-calm: #4c8dff;
-  --color-calm-dim: #1e3a66;
-  --color-danger: #e5484d;
-  --color-ok: #3dd68c;
+  --color-bg: #141310;
+  --color-surface: #1c1a16;
+  --color-surface-2: #252220;
+  --color-border: #362f27;
+  --color-text: #ede9e2;
+  --color-text-dim: #9c9488;
+  --color-text-faint: #6b6154;
+  --color-accent: #d97757;
+  --color-accent-dim: #4a2e21;
+  --color-calm: #8ca3d9;
+  --color-calm-dim: #262e42;
+  --color-danger: #d9695f;
+  --color-danger-dim: #402420;
+  --color-ok: #87b06a;
+  --color-ok-dim: #263420;
 }
 
 @theme inline {
@@ -29,7 +31,9 @@
   --color-calm: var(--color-calm);
   --color-calm-dim: var(--color-calm-dim);
   --color-danger: var(--color-danger);
+  --color-danger-dim: var(--color-danger-dim);
   --color-ok: var(--color-ok);
+  --color-ok-dim: var(--color-ok-dim);
   --font-sans: var(--font-geist-sans);
 }
 
@@ -40,4 +44,14 @@ html {
 body {
   background: var(--color-bg);
   color: var(--color-text);
+  font-feature-settings: "cv11", "ss01";
+}
+
+* {
+  -webkit-tap-highlight-color: transparent;
+}
+
+:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
 }

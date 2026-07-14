@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import dynamic from 'next/dynamic';
+import { Check, CircleAlert, Navigation, TriangleAlert, X } from 'lucide-react';
 import {
   listSosLocations,
   getSosSession,
@@ -174,11 +175,11 @@ export default function IncomingSosPage() {
   if (session.status === 'ended') {
     return (
       <div className="flex flex-1 flex-col items-center justify-center gap-2 p-6">
-        <h1 className="text-xl font-extrabold text-text">Phiên đã kết thúc</h1>
+        <h1 className="text-[19px] font-semibold tracking-tight text-text">Phiên đã kết thúc</h1>
         <p className="text-center text-sm text-text-dim">{ownerName} không còn cần giúp nữa.</p>
         <button
           onClick={() => router.replace('/')}
-          className="mt-3 rounded-2xl border border-border bg-surface-2 px-5 py-3 text-sm font-bold text-text"
+          className="mt-3 rounded-xl border border-border bg-surface-2 px-5 py-3 text-sm font-medium text-text"
         >
           Về trang chủ
         </button>
@@ -189,11 +190,11 @@ export default function IncomingSosPage() {
   if (session.status === 'accepted' && session.acceptedBy && myStatus !== 'accepted') {
     return (
       <div className="flex flex-1 flex-col items-center justify-center gap-2 p-6">
-        <h1 className="text-xl font-extrabold text-text">Đã có người nhận giúp</h1>
+        <h1 className="text-[19px] font-semibold tracking-tight text-text">Đã có người nhận giúp</h1>
         <p className="text-center text-sm text-text-dim">Ai đó khác đã đồng ý giúp {ownerName} rồi.</p>
         <button
           onClick={() => router.replace('/')}
-          className="mt-3 rounded-2xl border border-border bg-surface-2 px-5 py-3 text-sm font-bold text-text"
+          className="mt-3 rounded-xl border border-border bg-surface-2 px-5 py-3 text-sm font-medium text-text"
         >
           Về trang chủ
         </button>
@@ -204,10 +205,10 @@ export default function IncomingSosPage() {
   if (myStatus === 'declined') {
     return (
       <div className="flex flex-1 flex-col items-center justify-center gap-2 p-6">
-        <h1 className="text-xl font-extrabold text-text">Bạn đã từ chối</h1>
+        <h1 className="text-[19px] font-semibold tracking-tight text-text">Bạn đã từ chối</h1>
         <button
           onClick={() => router.replace('/')}
-          className="mt-3 rounded-2xl border border-border bg-surface-2 px-5 py-3 text-sm font-bold text-text"
+          className="mt-3 rounded-xl border border-border bg-surface-2 px-5 py-3 text-sm font-medium text-text"
         >
           Về trang chủ
         </button>
@@ -225,10 +226,15 @@ export default function IncomingSosPage() {
 
     return (
       <div className="flex h-full flex-1 flex-col p-5">
-        <div className="mb-3 rounded-[20px] bg-accent-dim p-[22px]">
-          <p className="mb-1.5 text-[11px] font-extrabold tracking-wide text-white/70 uppercase">Đang giúp</p>
-          <h1 className="text-center text-xl font-extrabold text-text">{ownerName} cần bạn tới giúp</h1>
-          {locationError && <p className="mt-2 text-center text-[12.5px] text-danger">⚠️ {locationError}</p>}
+        <div className="mb-3 rounded-2xl bg-accent-dim p-5">
+          <p className="mb-1.5 text-[11px] font-medium tracking-wide text-white/65 uppercase">Đang giúp</p>
+          <h1 className="text-center text-lg font-semibold tracking-tight text-text">{ownerName} cần bạn tới giúp</h1>
+          {locationError && (
+            <div className="mt-2 flex items-center justify-center gap-1.5 text-[12.5px] text-danger">
+              <CircleAlert size={13} strokeWidth={2} />
+              {locationError}
+            </div>
+          )}
         </div>
 
         {ownerLocation ? (
@@ -240,8 +246,9 @@ export default function IncomingSosPage() {
               href={`https://www.google.com/maps/dir/?api=1&destination=${ownerLocation.latitude},${ownerLocation.longitude}`}
               target="_blank"
               rel="noopener noreferrer"
-              className="mb-3 block w-full rounded-2xl bg-calm py-3.5 text-center text-[15px] font-extrabold text-white"
+              className="mb-3 flex w-full items-center justify-center gap-2 rounded-xl bg-calm py-3.5 text-[15px] font-medium text-white"
             >
+              <Navigation size={17} strokeWidth={2} />
               Chỉ đường tới đây
             </a>
           </>
@@ -253,7 +260,7 @@ export default function IncomingSosPage() {
 
         <button
           onClick={() => router.replace('/')}
-          className="w-full rounded-2xl border border-border bg-surface-2 py-3 text-sm font-bold text-text"
+          className="w-full rounded-xl border border-border bg-surface-2 py-3 text-sm font-medium text-text"
         >
           Về trang chủ
         </button>
@@ -262,10 +269,13 @@ export default function IncomingSosPage() {
   }
 
   return (
-    <div className="flex flex-1 flex-col justify-center gap-3.5 p-5">
-      <div className="mb-3 rounded-[20px] bg-accent-dim p-[22px]">
-        <p className="mb-1.5 text-[11px] font-extrabold tracking-wide text-white/70 uppercase">Cầu cứu</p>
-        <h1 className="text-center text-xl font-extrabold text-text">{ownerName} đang cần giúp!</h1>
+    <div className="flex flex-1 flex-col justify-center gap-3 p-5">
+      <div className="mb-3 rounded-2xl bg-accent-dim p-5">
+        <p className="mb-1.5 flex items-center justify-center gap-1.5 text-[11px] font-medium tracking-wide text-white/65 uppercase">
+          <TriangleAlert size={13} strokeWidth={2} />
+          Cầu cứu
+        </p>
+        <h1 className="text-center text-lg font-semibold tracking-tight text-text">{ownerName} đang cần giúp</h1>
         <p className="mt-1.5 text-center text-sm text-text-dim">
           {session.mode === 'broadcast' ? 'Đã nhờ tất cả lốp — ai đồng ý trước sẽ đi giúp.' : 'Nhờ riêng bạn giúp lần này.'}
         </p>
@@ -274,16 +284,18 @@ export default function IncomingSosPage() {
       <button
         onClick={() => respond(true)}
         disabled={isResponding}
-        className="rounded-2xl bg-ok py-4 text-base font-extrabold text-[#08341F] disabled:opacity-50"
+        className="flex items-center justify-center gap-2 rounded-2xl bg-ok py-4 text-[15px] font-medium text-[#132B0A] transition-opacity active:opacity-90 disabled:opacity-50"
       >
+        <Check size={18} strokeWidth={2.25} />
         Đồng ý giúp
       </button>
 
       <button
         onClick={() => respond(false)}
         disabled={isResponding}
-        className="rounded-2xl border border-border bg-surface-2 py-4 text-[15px] font-bold text-text-dim disabled:opacity-50"
+        className="flex items-center justify-center gap-2 rounded-2xl border border-border bg-surface-2 py-4 text-[15px] font-medium text-text-dim transition-colors active:bg-surface disabled:opacity-50"
       >
+        <X size={18} strokeWidth={2} />
         Từ chối
       </button>
     </div>

@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter, usePathname } from 'next/navigation';
+import { CircleCheck, Plus, TriangleAlert, UserRound } from 'lucide-react';
 import { SosButton } from '../components/SosButton';
 import { SpareListItem } from '../components/SpareListItem';
 import { listMySpares, listOwnersOfMe, removeSpareRelationship, type MySpare, type OwnerOfMe } from '../lib/api/spares';
@@ -122,9 +123,13 @@ export default function HomePage() {
 
   return (
     <div className="mx-auto w-full max-w-lg p-5 pb-12">
-      <div className="mb-4 flex items-center justify-between">
-        <h1 className="text-[22px] font-extrabold text-text">Lốp Dự Phòng</h1>
-        <Link href="/settings" className="text-[13px] font-semibold text-calm">
+      <div className="mb-5 flex items-center justify-between">
+        <h1 className="text-[20px] font-semibold tracking-tight text-text">Lốp Dự Phòng</h1>
+        <Link
+          href="/settings"
+          className="flex items-center gap-1.5 text-[13px] font-medium text-text-dim transition-colors hover:text-text"
+        >
+          <UserRound size={16} strokeWidth={2} />
           Hồ sơ
         </Link>
       </div>
@@ -132,12 +137,21 @@ export default function HomePage() {
       {activeSession && (
         <button
           onClick={() => router.push(`/sos/${activeSession.id}`)}
-          className="mb-3.5 w-full rounded-2xl bg-calm-dim p-4 text-left"
+          className="mb-3 flex w-full items-start gap-3 rounded-xl bg-calm-dim p-4 text-left"
         >
-          <p className="text-[15px] font-extrabold text-text">
-            {activeSession.status === 'accepted' ? '🟢 Đã có người nhận giúp bạn' : '🆘 Đang chờ phản hồi cầu cứu'}
-          </p>
-          <p className="mt-1 text-[12.5px] text-text-dim">Bấm để xem chi tiết</p>
+          <div className="mt-0.5 shrink-0 text-calm">
+            {activeSession.status === 'accepted' ? (
+              <CircleCheck size={18} strokeWidth={2} />
+            ) : (
+              <TriangleAlert size={18} strokeWidth={2} />
+            )}
+          </div>
+          <div className="min-w-0">
+            <p className="text-[14.5px] font-medium text-text">
+              {activeSession.status === 'accepted' ? 'Đã có người nhận giúp bạn' : 'Đang chờ phản hồi cầu cứu'}
+            </p>
+            <p className="mt-0.5 text-[12.5px] text-text-dim">Bấm để xem chi tiết</p>
+          </div>
         </button>
       )}
 
@@ -145,26 +159,32 @@ export default function HomePage() {
         <button
           key={req.response.id}
           onClick={() => router.push(`/sos/incoming/${req.session.id}`)}
-          className="mb-3.5 w-full rounded-2xl bg-accent-dim p-4 text-left"
+          className="mb-3 flex w-full items-start gap-3 rounded-xl bg-accent-dim p-4 text-left"
         >
-          <p className="text-[15px] font-extrabold text-text">🆘 {req.owner.display_name} đang cần giúp!</p>
-          <p className="mt-1 text-[12.5px] text-text-dim">Bấm để xem và phản hồi</p>
+          <div className="mt-0.5 shrink-0 text-accent">
+            <TriangleAlert size={18} strokeWidth={2} />
+          </div>
+          <div className="min-w-0">
+            <p className="text-[14.5px] font-medium text-text">{req.owner.display_name} đang cần giúp</p>
+            <p className="mt-0.5 text-[12.5px] text-text-dim">Bấm để xem và phản hồi</p>
+          </div>
         </button>
       ))}
 
       <SosButton onPress={() => router.push('/sos/new')} />
 
-      <div className="mt-[22px] mb-2.5 flex items-center justify-between">
-        <p className="text-xs font-bold tracking-wide text-text-faint uppercase">Lốp dự phòng của bạn · {mySpares.length}</p>
-        <Link href="/add-spare" className="text-[13px] font-bold text-calm">
-          + Thêm lốp
+      <div className="mt-6 mb-2.5 flex items-center justify-between">
+        <p className="text-xs font-medium tracking-wide text-text-faint uppercase">Lốp dự phòng của bạn · {mySpares.length}</p>
+        <Link href="/add-spare" className="flex items-center gap-1 text-[13px] font-medium text-calm">
+          <Plus size={14} strokeWidth={2.25} />
+          Thêm lốp
         </Link>
       </div>
 
       {mySpares.length === 0 ? (
         <p className="text-[13.5px] text-text-dim">Chưa có lốp nào — bấm &quot;Thêm lốp&quot; để bắt đầu.</p>
       ) : (
-        <div className="flex flex-col gap-2.5">
+        <div className="flex flex-col gap-2">
           {mySpares.map((item) => (
             <SpareListItem
               key={item.relationshipId}
@@ -177,14 +197,14 @@ export default function HomePage() {
         </div>
       )}
 
-      <p className="mt-6 mb-2.5 text-xs font-bold tracking-wide text-text-faint uppercase">
+      <p className="mt-7 mb-2.5 text-xs font-medium tracking-wide text-text-faint uppercase">
         Bạn là lốp của · {ownersOfMe.length}
       </p>
 
       {ownersOfMe.length === 0 ? (
         <p className="text-[13.5px] text-text-dim">Chưa là lốp của ai.</p>
       ) : (
-        <div className="flex flex-col gap-2.5">
+        <div className="flex flex-col gap-2">
           {ownersOfMe.map((item) => (
             <SpareListItem
               key={item.relationshipId}
