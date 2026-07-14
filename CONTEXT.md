@@ -467,3 +467,18 @@ thuộc về A — không tự động tạo quan hệ ngược lại.
     không tự gọi được `complete_sos_session`/`fail_sos_session` cho chính mình (chặn đúng
     bằng "not_allowed"). Verify UI bằng Playwright: badge điểm hiện đúng trên trang chủ, 2
     nút hoàn thành/chưa hoàn thành hiện đúng trên bản đồ dark mode mới.
+- **2026-07-15 — Trang Bảng xếp hạng lốp** (`app/leaderboard/page.tsx`), theo yêu cầu user
+  ngay sau khi có điểm số. Sort `listMySpares()` theo `score` giảm dần ở client (không cần
+  RPC riêng — dữ liệu đã đủ, chỉ khác cách hiển thị).
+  - Giao diện "podium" cho top 3: thứ tự hiển thị hạng 2 - hạng 1 - hạng 3 (hạng 1 ở giữa,
+    bệ cao nhất), icon `Crown` (vương miện) cho hạng 1, `Medal` cho hạng 2/3, avatar có
+    ring màu tương ứng huy chương (vàng/bạc/đồng), số thứ hạng lớn hiện trong bệ podium.
+    Hạng 4 trở đi hiện dạng list thường có số thứ tự.
+  - Thêm link "Xếp hạng" (icon `Trophy`) cạnh "Thêm lốp" ở trang chủ.
+  - Xuất `avatarColorFor`/`AVATAR_COLORS` từ `SpareListItem.tsx` (trước đây là hàm nội bộ
+    không export) để trang leaderboard dùng chung đúng màu avatar với danh sách lốp, tránh
+    lặp logic.
+  - Verify bằng Playwright: tạo tạm 4 tài khoản test + set điểm khác nhau qua SQL trực tiếp
+    (180/320/50/0) để có đủ dữ liệu test podium 5 người, chụp ảnh xác nhận giao diện đúng ý
+    (huy chương, ring màu, số hạng trong bệ), sau đó dọn sạch toàn bộ tài khoản/quan hệ test
+    — xác nhận lại chỉ còn đúng 1 lốp thật (điểm 250) không bị ảnh hưởng.

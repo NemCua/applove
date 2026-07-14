@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter, usePathname } from 'next/navigation';
-import { CircleCheck, Plus, TriangleAlert, UserRound } from 'lucide-react';
+import { CircleCheck, Plus, Trophy, TriangleAlert, UserRound } from 'lucide-react';
 import { SosButton } from '../components/SosButton';
 import { SpareListItem } from '../components/SpareListItem';
 import { listMySpares, listOwnersOfMe, removeSpareRelationship, type MySpare, type OwnerOfMe } from '../lib/api/spares';
@@ -175,10 +175,16 @@ export default function HomePage() {
 
       <div className="mt-6 mb-2.5 flex items-center justify-between">
         <p className="text-xs font-medium tracking-wide text-text-faint uppercase">Lốp dự phòng của bạn · {mySpares.length}</p>
-        <Link href="/add-spare" className="flex items-center gap-1 text-[13px] font-medium text-calm">
-          <Plus size={14} strokeWidth={2.25} />
-          Thêm lốp
-        </Link>
+        <div className="flex items-center gap-3">
+          <Link href="/leaderboard" className="flex items-center gap-1 text-[13px] font-medium text-calm">
+            <Trophy size={14} strokeWidth={2.25} />
+            Xếp hạng
+          </Link>
+          <Link href="/add-spare" className="flex items-center gap-1 text-[13px] font-medium text-calm">
+            <Plus size={14} strokeWidth={2.25} />
+            Thêm lốp
+          </Link>
+        </div>
       </div>
 
       {mySpares.length === 0 ? (

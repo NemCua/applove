@@ -2,9 +2,9 @@
 
 import { X } from 'lucide-react';
 
-const AVATAR_COLORS = ['#8CA3D9', '#C98CA8', '#A691C9', '#87B06A', '#D97757'];
+export const AVATAR_COLORS = ['#8CA3D9', '#C98CA8', '#A691C9', '#87B06A', '#D97757'];
 
-function avatarColorFor(id: string) {
+export function avatarColorFor(id: string) {
   const sum = id.split('').reduce((acc, ch) => acc + ch.charCodeAt(0), 0);
   return AVATAR_COLORS[sum % AVATAR_COLORS.length];
 }
