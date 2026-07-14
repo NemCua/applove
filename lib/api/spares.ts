@@ -9,6 +9,7 @@ export type MySpare = {
   relationshipId: string;
   spare: SpareProfile;
   createdAt: string;
+  score: number;
 };
 
 export type OwnerOfMe = {
@@ -30,7 +31,7 @@ export async function listMySpares(): Promise<MySpare[]> {
   // lốp của chính mình).
   const { data, error } = await supabase
     .from('spare_relationships')
-    .select('id, created_at, spare:profiles!spare_relationships_spare_id_fkey(id, display_name)')
+    .select('id, created_at, score, spare:profiles!spare_relationships_spare_id_fkey(id, display_name)')
     .eq('owner_id', myId)
     .order('created_at', { ascending: false });
 
@@ -40,6 +41,7 @@ export async function listMySpares(): Promise<MySpare[]> {
     relationshipId: row.id,
     spare: row.spare,
     createdAt: row.created_at,
+    score: row.score,
   }));
 }
 

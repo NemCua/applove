@@ -113,16 +113,28 @@ export async function POST(request: NextRequest) {
 
   if (payload.table === 'sos_sessions' && payload.type === 'UPDATE') {
     // Phiên vừa kết thúc — nếu đã có người đang giúp (accepted_by), báo cho họ
-    // biết "đã ổn, không cần tới nữa" để họ khỏi phải tự đoán qua việc mở lại app.
+    // biết kết quả để họ khỏi phải tự đoán qua việc mở lại app. 3 trường hợp
+    // khác nhau: owner xác nhận hoàn thành (completed), owner đánh giá chưa
+    // hoàn thành (failed + ended_by = owner), hoặc spare tự huỷ giữa chừng
+    // (failed + ended_by = chính spare đó, không cần báo lại cho họ).
     const session = payload.record;
     const oldSession = payload.old_record;
-    const justEnded = oldSession?.status !== 'ended' && session.status === 'ended';
+    const wasActive = oldSession?.status === 'active' || oldSession?.status === 'accepted';
 
-    if (justEnded && session.accepted_by) {
+    if (wasActive && session.status === 'completed' && session.accepted_by) {
       const { data: owner } = await supabase.from('profiles').select('display_name').eq('id', session.owner_id).single();
       const ownerName = owner?.display_name ?? 'Người đó';
 
-      await sendPush(supabase, session.accepted_by, `✅ ${ownerName} đã ổn rồi!`, 'Không cần tới giúp nữa, cảm ơn bạn nhé.', {
+      await sendPush(supabase, session.accepted_by, `${ownerName} đã ổn rồi!`, 'Cảm ơn bạn đã giúp — phiên được đánh dấu hoàn thành.', {
+        url: `/sos/incoming/${session.id}`,
+      });
+    }
+
+    if (wasActive && session.status === 'failed' && session.accepted_by && session.ended_by === session.owner_id) {
+      const { data: owner } = await supabase.from('profiles').select('display_name').eq('id', session.owner_id).single();
+      const ownerName = owner?.display_name ?? 'Người đó';
+
+      await sendPush(supabase, session.accepted_by, `${ownerName} đã kết thúc phiên`, 'Không cần tới giúp nữa.', {
         url: `/sos/incoming/${session.id}`,
       });
     }

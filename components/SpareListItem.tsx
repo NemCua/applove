@@ -13,10 +13,11 @@ type Props = {
   displayName: string;
   subtitle: string;
   personId: string;
+  score?: number;
   onRemove?: () => void;
 };
 
-export function SpareListItem({ displayName, subtitle, personId, onRemove }: Props) {
+export function SpareListItem({ displayName, subtitle, personId, score, onRemove }: Props) {
   const initial = displayName.trim().charAt(0).toUpperCase() || '?';
 
   return (
@@ -31,6 +32,11 @@ export function SpareListItem({ displayName, subtitle, personId, onRemove }: Pro
         <p className="truncate text-[14.5px] font-medium text-text">{displayName}</p>
         <p className="mt-0.5 truncate text-[12.5px] text-text-dim">{subtitle}</p>
       </div>
+      {score !== undefined && (
+        <div className="shrink-0 rounded-full bg-surface px-2.5 py-1 text-center">
+          <p className="text-[13px] font-semibold tabular-nums text-accent">{score}</p>
+        </div>
+      )}
       {onRemove && (
         <button
           onClick={onRemove}

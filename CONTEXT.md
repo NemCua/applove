@@ -434,3 +434,36 @@ thuộc về A — không tự động tạo quan hệ ngược lại.
   - Đã tự verify bằng Playwright chụp ảnh 4 màn hình chính (login, home, sos/new, add-spare,
     settings) trên viewport mobile (390×844) trước khi deploy — không phát hiện lỗi
     chồng/lệch layout.
+- **2026-07-15 — Điểm số cho từng quan hệ owner→spare** (tính năng mới do user đề xuất,
+  không nằm trong CONTEXT.md gốc). Ý tưởng: owner đánh giá "lốp nào chất lượng nhất" trong
+  danh sách của mình bằng điểm số riêng cho từng người, không phải điểm public của tài
+  khoản.
+  - Migration `00000000000013`: `spare_relationships.score` (integer, mặc định 0, sàn 0
+    không âm). Đổi `sos_sessions.status` từ 3 giá trị mơ hồ (`active/accepted/ended`) sang
+    4 giá trị rõ nghĩa (`active/accepted/completed/failed`) — dữ liệu cũ `'ended'` migrate
+    thành `'failed'`.
+  - RPC mới: `complete_sos_session` (chỉ owner gọi được, +100đ cho `accepted_by`, status→
+    `completed`) và `fail_sos_session` (chỉ owner, -50đ sàn 0, status→`failed`).
+    `end_sos_session` cũ giữ lại cho case spare tự huỷ giữa chừng hoặc owner huỷ khi
+    *chưa* ai accepted — set `failed` nhưng **không đụng điểm** (chỉ owner đánh giá chất
+    lượng giúp đỡ mới đổi điểm, không phải chỉ vì phiên kết thúc).
+  - **Lỗi gặp lúc migrate (đã sửa lại thứ tự trong file)**: `alter table drop constraint` +
+    `add constraint` mới **trước khi** UPDATE đổi `'ended'`→`'failed'` khiến Postgres báo lỗi
+    "check constraint is violated by some row" ngay khi thêm constraint (dữ liệu cũ chưa kịp
+    migrate). Bài học lặp lại từ M4/M5: luôn UPDATE dữ liệu xong xuôi trước khi siết ràng
+    buộc mới, không phải ngược lại.
+  - UI: `SpareListItem` thêm badge tròn hiện điểm (chỉ hiện ở danh sách "Lốp dự phòng của
+    bạn", không hiện ở "Bạn là lốp của" — đúng ý đồ chỉ owner nhìn thấy điểm mình chấm).
+    Màn hình owner (`sos/[sessionId]`) đổi 1 nút "Kết thúc phiên" chung chung thành 2 nút
+    riêng biệt "Đã hoàn thành" (xanh, +100) / "Chưa hoàn thành" (viền đỏ, -50), chỉ hiện khi
+    `status === 'accepted'`; nút "Huỷ cầu cứu" cũ chỉ còn hiện khi `status === 'active'`
+    (chưa ai nhận). Màn hình spare phân biệt rõ 3 kết quả khi phiên kết thúc: được owner xác
+    nhận hoàn thành, bị owner đánh giá chưa hoàn thành, hoặc tự mình huỷ giữa chừng.
+  - Webhook (`app/api/webhooks/sos/route.ts`) cập nhật theo 4 status mới, gửi push khác nhau
+    cho spare tuỳ owner hoàn thành hay chưa hoàn thành (không nhắc số điểm cụ thể trong nội
+    dung thông báo, tránh cảm giác "bị chấm điểm" lộ liễu).
+  - Verify toàn bộ qua API thật: +100 khi complete, -50 khi fail (test liên tiếp tới khi về
+    đúng sàn 0, không bị âm), spare tự huỷ qua `end_sos_session` không đổi điểm, và spare
+    không tự gọi được `complete_sos_session`/`fail_sos_session` cho chính mình (chặn đúng
+    bằng "not_allowed"). Verify UI bằng Playwright: badge điểm hiện đúng trên trang chủ, 2
+    nút hoàn thành/chưa hoàn thành hiện đúng trên bản đồ dark mode mới.

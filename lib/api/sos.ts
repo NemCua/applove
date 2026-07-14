@@ -1,7 +1,7 @@
 import { createClient } from '../supabase/client';
 
 export type SosMode = 'broadcast' | 'direct';
-export type SosSessionStatus = 'active' | 'accepted' | 'ended';
+export type SosSessionStatus = 'active' | 'accepted' | 'completed' | 'failed';
 export type SosResponseStatus = 'pending' | 'accepted' | 'declined';
 
 export type SosSession = {
@@ -65,9 +65,25 @@ export async function respondToSos(sessionId: string, accept: boolean): Promise<
   if (error) throw mapKnownError(error, RESPOND_ERROR_MESSAGES);
 }
 
+// Spare tự huỷ giữa chừng, hoặc owner huỷ khi chưa ai nhận — không ảnh hưởng
+// điểm số (chỉ owner đánh giá "hoàn thành/chưa hoàn thành" mới đổi điểm).
 export async function endSosSession(sessionId: string): Promise<void> {
   const supabase = createClient();
   const { error } = await supabase.rpc('end_sos_session', { p_session_id: sessionId });
+  if (error) throw error;
+}
+
+// Owner xác nhận spare đã giúp xong — +100đ cho quan hệ owner→spare đó.
+export async function completeSosSession(sessionId: string): Promise<void> {
+  const supabase = createClient();
+  const { error } = await supabase.rpc('complete_sos_session', { p_session_id: sessionId });
+  if (error) throw error;
+}
+
+// Owner đánh giá spare chưa hoàn thành — -50đ (sàn 0, không âm).
+export async function failSosSession(sessionId: string): Promise<void> {
+  const supabase = createClient();
+  const { error } = await supabase.rpc('fail_sos_session', { p_session_id: sessionId });
   if (error) throw error;
 }
 

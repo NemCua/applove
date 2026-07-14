@@ -3,9 +3,11 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import dynamic from 'next/dynamic';
-import { CircleAlert, CircleCheck, MapPin, TriangleAlert } from 'lucide-react';
+import { Check, CircleAlert, CircleCheck, MapPin, TriangleAlert, X } from 'lucide-react';
 import {
+  completeSosSession,
   endSosSession,
+  failSosSession,
   getSosSession,
   listSosLocations,
   listSosResponses,
@@ -22,7 +24,8 @@ const SosMap = dynamic(() => import('../../../components/SosMap').then((m) => m.
 const STATUS_LABEL: Record<SosSession['status'], string> = {
   active: 'Đang chờ phản hồi...',
   accepted: 'Đã có người nhận giúp!',
-  ended: 'Phiên đã kết thúc',
+  completed: 'Đã hoàn thành',
+  failed: 'Phiên đã kết thúc',
 };
 
 const RESPONSE_LABEL: Record<SosResponse['status'], string> = {
@@ -154,12 +157,40 @@ export default function ActiveSosPage() {
     };
   }, [sessionId, session?.status]);
 
-  const handleEnd = async () => {
+  const handleCancel = async () => {
     if (!sessionId) return;
     if (!confirm('Bạn đã ổn rồi? Phiên cầu cứu sẽ kết thúc.')) return;
     setIsEnding(true);
     try {
       await endSosSession(sessionId);
+      router.replace('/');
+    } catch (err: any) {
+      alert('Lỗi: ' + (err.message ?? String(err)));
+    } finally {
+      setIsEnding(false);
+    }
+  };
+
+  const handleComplete = async () => {
+    if (!sessionId) return;
+    if (!confirm('Xác nhận người này đã tới giúp bạn xong?')) return;
+    setIsEnding(true);
+    try {
+      await completeSosSession(sessionId);
+      router.replace('/');
+    } catch (err: any) {
+      alert('Lỗi: ' + (err.message ?? String(err)));
+    } finally {
+      setIsEnding(false);
+    }
+  };
+
+  const handleFail = async () => {
+    if (!sessionId) return;
+    if (!confirm('Đánh giá phiên này là chưa hoàn thành?')) return;
+    setIsEnding(true);
+    try {
+      await failSosSession(sessionId);
       router.replace('/');
     } catch (err: any) {
       alert('Lỗi: ' + (err.message ?? String(err)));
@@ -191,14 +222,18 @@ export default function ActiveSosPage() {
     });
   }
 
-  const StatusIcon = session.status === 'accepted' ? CircleCheck : TriangleAlert;
+  const StatusIcon = session.status === 'completed' ? CircleCheck : session.status === 'failed' ? X : session.status === 'accepted' ? CircleCheck : TriangleAlert;
+  const statusBgClass =
+    session.status === 'completed' ? 'bg-ok-dim' : session.status === 'failed' ? 'bg-danger-dim' : session.status === 'accepted' ? 'bg-calm-dim' : 'bg-accent-dim';
+  const statusIconClass =
+    session.status === 'completed' ? 'text-ok' : session.status === 'failed' ? 'text-danger' : session.status === 'accepted' ? 'text-calm' : 'text-accent';
 
   return (
     <div className="mx-auto flex h-full w-full max-w-lg flex-col p-5 pb-8">
       <h1 className="mb-4 text-[20px] font-semibold tracking-tight text-text">Đang cầu cứu</h1>
 
-      <div className={`mb-5 flex items-start gap-3 rounded-xl p-4 ${session.status === 'accepted' ? 'bg-calm-dim' : 'bg-accent-dim'}`}>
-        <StatusIcon size={19} strokeWidth={2} className={`mt-0.5 shrink-0 ${session.status === 'accepted' ? 'text-calm' : 'text-accent'}`} />
+      <div className={`mb-5 flex items-start gap-3 rounded-xl p-4 ${statusBgClass}`}>
+        <StatusIcon size={19} strokeWidth={2} className={`mt-0.5 shrink-0 ${statusIconClass}`} />
         <div className="min-w-0">
           <p className="text-[15px] font-medium text-text">{STATUS_LABEL[session.status]}</p>
           {session.mode === 'broadcast' && (
@@ -251,15 +286,38 @@ export default function ActiveSosPage() {
         </>
       )}
 
-      {session.status !== 'ended' ? (
+      {session.status === 'accepted' && (
+        <div className="mt-5 flex flex-col gap-2.5">
+          <button
+            onClick={handleComplete}
+            disabled={isEnding}
+            className="flex w-full items-center justify-center gap-2 rounded-xl bg-ok py-3.5 text-[14.5px] font-medium text-[#132B0A] transition-opacity active:opacity-90 disabled:opacity-50"
+          >
+            <Check size={17} strokeWidth={2.25} />
+            Đã hoàn thành
+          </button>
+          <button
+            onClick={handleFail}
+            disabled={isEnding}
+            className="flex w-full items-center justify-center gap-2 rounded-xl border border-border bg-surface-2 py-3.5 text-[14.5px] font-medium text-danger transition-colors active:bg-surface disabled:opacity-50"
+          >
+            <X size={17} strokeWidth={2} />
+            Chưa hoàn thành
+          </button>
+        </div>
+      )}
+
+      {session.status === 'active' && (
         <button
-          onClick={handleEnd}
+          onClick={handleCancel}
           disabled={isEnding}
           className="mt-5 w-full rounded-xl border border-border bg-surface-2 py-3.5 text-[14.5px] font-medium text-text transition-colors active:bg-surface disabled:opacity-50"
         >
-          {isEnding ? 'Đang xử lý...' : 'Kết thúc phiên (đã ổn)'}
+          {isEnding ? 'Đang xử lý...' : 'Huỷ cầu cứu'}
         </button>
-      ) : (
+      )}
+
+      {(session.status === 'completed' || session.status === 'failed') && (
         <button
           onClick={() => router.replace('/')}
           className="mt-5 w-full rounded-xl border border-border bg-surface-2 py-3.5 text-[14.5px] font-medium text-text transition-colors active:bg-surface"

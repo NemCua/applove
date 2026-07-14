@@ -172,11 +172,27 @@ export default function IncomingSosPage() {
     );
   }
 
-  if (session.status === 'ended') {
+  if (session.status === 'completed' || session.status === 'failed') {
+    const isMe = myStatus === 'accepted';
+    const title = !isMe
+      ? 'Phiên đã kết thúc'
+      : session.status === 'completed'
+        ? 'Đã hoàn thành — cảm ơn bạn!'
+        : session.endedBy === session.ownerId
+          ? 'Chưa được đánh giá hoàn thành'
+          : 'Bạn đã huỷ giúp đỡ';
+    const subtitle = !isMe
+      ? `${ownerName} không còn cần giúp nữa.`
+      : session.status === 'completed'
+        ? `${ownerName} đã xác nhận bạn giúp xong.`
+        : session.endedBy === session.ownerId
+          ? `${ownerName} đánh giá lần này chưa hoàn thành.`
+          : 'Bạn đã tự kết thúc giữa chừng.';
+
     return (
       <div className="flex flex-1 flex-col items-center justify-center gap-2 p-6">
-        <h1 className="text-[19px] font-semibold tracking-tight text-text">Phiên đã kết thúc</h1>
-        <p className="text-center text-sm text-text-dim">{ownerName} không còn cần giúp nữa.</p>
+        <h1 className="text-[19px] font-semibold tracking-tight text-text">{title}</h1>
+        <p className="text-center text-sm text-text-dim">{subtitle}</p>
         <button
           onClick={() => router.replace('/')}
           className="mt-3 rounded-xl border border-border bg-surface-2 px-5 py-3 text-sm font-medium text-text"

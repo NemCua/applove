@@ -191,6 +191,7 @@ export default function HomePage() {
               personId={item.spare.id}
               displayName={item.spare.display_name}
               subtitle={`Đã thêm ${formatRelativeDate(item.createdAt)}`}
+              score={item.score}
               onRemove={() => handleRemoveSpare(item.relationshipId, item.spare.display_name)}
             />
           ))}
